@@ -188,5 +188,14 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 		output := reducef(key, value)
 		fmt.Fprintf(ofile, "%v %v\n", key, output)
 	}
+
+	args := CompletedArgs{
+		Number: reduceNumber,
+	}
+
+	ok := call("Coordinator.ReducingCompleted", &args, nil)
+	if !ok {
+		fmt.Printf("call Coordinator.ReducingCompleted failed!\n")
+	}
 	return nil
 }
