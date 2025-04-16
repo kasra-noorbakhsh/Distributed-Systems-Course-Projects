@@ -77,12 +77,14 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
-	reply := requestTask()
-	switch reply.TaskType {
-	case Map:
-		mapTask(mapf, reply)
-	case Reduce:
-		reduceTask(reducef, reply.TaskNumber)
+	for {
+		reply := requestTask()
+		switch reply.TaskType {
+		case Map:
+			mapTask(mapf, reply)
+		case Reduce:
+			reduceTask(reducef, reply.TaskNumber)
+		}
 	}
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
@@ -95,7 +97,9 @@ func requestTask() GetTaskReply {
 
 	ok := call("Coordinator.GetTask", &args, &reply)
 	if ok {
-		fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
+		if reply.TaskType != NoTask {
+			// fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
+		}
 	} else {
 		fmt.Printf("call failed!\n")
 	}
@@ -141,7 +145,6 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 	args := CompletedArgs{
 		Number: reply.TaskNumber,
 	}
-
 	ok := call("Coordinator.MappingCompleted", &args, nil)
 	if !ok {
 		fmt.Printf("call Coordinator.MappingCompleted failed!\n")
@@ -192,7 +195,6 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 	args := CompletedArgs{
 		Number: reduceNumber,
 	}
-
 	ok := call("Coordinator.ReducingCompleted", &args, nil)
 	if !ok {
 		fmt.Printf("call Coordinator.ReducingCompleted failed!\n")

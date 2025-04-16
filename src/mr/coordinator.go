@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -60,7 +59,7 @@ func (c *Coordinator) Done() bool {
 			c.mappedLock.Unlock()
 			return false
 		}
-	} 
+	}
 	c.mappedLock.Unlock()
 
 	c.reducedLock.Lock()
@@ -117,7 +116,8 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 		}
 	}
 	c.reducedLock.Unlock()
-	return errors.New("no available map tasks")
+	return nil
+	// return errors.New("no available map tasks")
 }
 
 func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedReply) error {
