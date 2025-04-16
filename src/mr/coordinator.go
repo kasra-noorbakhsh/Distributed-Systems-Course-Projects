@@ -114,3 +114,11 @@ func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedRepl
 	fmt.Printf("Maping %d Completed\n", args.Number)
 	return nil
 }
+
+func (c *Coordinator) ReducingCompleted(args *CompletedArgs, reply *CompletedReply) error {
+	c.reducedLock.Lock()
+	c.reduced[args.Number] = Completed
+	c.reducedLock.Unlock()
+	fmt.Printf("Reducing %d Completed\n", args.Number)
+	return nil
+}
