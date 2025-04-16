@@ -75,49 +75,57 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
-	filename, mapNumber := requestTask()
-	mapTask(mapf, filename, mapNumber)
+	reply := requestTask()
+	mapTask(mapf, reply)
 
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
 
 }
 
-func requestTask() (string, int) {
+func requestTask() GetTaskReply {
 	args := GetTaskArgs{}
 	reply := GetTaskReply{}
 
 	ok := call("Coordinator.GetTask", &args, &reply)
 	if ok {
-		fmt.Printf("reply.MapNumber %v; reply.Filename %s\n", reply.MapNumber, reply.Filename)
+		fmt.Printf("reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.MapNumber, reply.Filename, reply.NReduce)
 	} else {
 		fmt.Printf("call failed!\n")
 	}
-	return reply.Filename, reply.MapNumber
+	return reply
 }
 
-func mapTask(mapf func(string, string) []KeyValue, filename string, mapNumber int) error {
-	file, err := os.Open(filename)
+func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
+	file, err := os.Open(reply.Filename)
 	if err != nil {
-		log.Fatalf("cannot open %v", filename)
+		log.Fatalf("cannot open %v", reply.Filename)
 	}
 	content, err := io.ReadAll(file)
 	if err != nil {
-		log.Fatalf("cannot read %v", filename)
+		log.Fatalf("cannot read %v", reply.Filename)
 	}
 	file.Close()
 
-	kva := mapf(filename, string(content))
+	kva := mapf(reply.Filename, string(content))
 
-	oname := fmt.Sprintf("mr-out-%d", mapNumber)
-	ofile, err := os.Create(oname)
-	if err != nil {
-		return err
+	var ofiles []*os.File
+	for i := range reply.NReduce {
+		oname := fmt.Sprintf("mr-out-%d-%d", reply.MapNumber, i)
+		ofile, err := os.Create(oname)
+
+		if err != nil {
+			return err
+		}
+		defer ofile.Close()
+
+		ofiles = append(ofiles, ofile)
 	}
-	defer file.Close()
 
 	for _, kv := range kva {
-		_, err := fmt.Fprintf(ofile, "%s %s\n", kv.Key, kv.Value)
+		reduceNumber := ihash(kv.Key) % reply.NReduce
+		_, err := fmt.Fprintf(ofiles[reduceNumber], "%s %s\n", kv.Key, kv.Value)
+
 		if err != nil {
 			return err
 		}

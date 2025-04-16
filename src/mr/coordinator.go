@@ -12,6 +12,7 @@ import (
 type Coordinator struct {
 	filenames []string
 	mapped    []bool
+	nReduce   int
 }
 
 // an example RPC handler.
@@ -54,6 +55,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 	c.filenames = files
 	c.mapped = make([]bool, len(c.filenames))
+	c.nReduce = nReduce
 
 	c.server()
 	return &c
@@ -63,8 +65,9 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	for i, v := range c.mapped {
 		if !v {
 			c.mapped[i] = true
-			reply.MapNumber = i + 1
+			reply.MapNumber = i
 			reply.Filename = c.filenames[i]
+			reply.NReduce = c.nReduce
 			return nil
 		}
 	}
