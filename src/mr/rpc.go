@@ -33,6 +33,14 @@ type GetTaskReply struct {
 	NReduce   int
 }
 
+type CompletedArgs struct {
+	Number int
+}
+
+type CompletedReply struct {
+
+}
+
 // Add your RPC definitions here.
 
 // Cook up a unique-ish UNIX-domain socket name

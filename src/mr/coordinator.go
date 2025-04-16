@@ -2,17 +2,30 @@ package mr
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
+)
+
+type Status int
+
+const (
+	NotAssigned Status = iota
+	Assigned
+	Completed
 )
 
 type Coordinator struct {
-	filenames []string
-	mapped    []bool
-	nReduce   int
+	filenames   []string
+	mapped      []Status
+	reduced     []Status
+	nReduce     int
+	mappedLock  sync.Mutex
+	reducedLock sync.Mutex
 }
 
 // an example RPC handler.
@@ -52,24 +65,38 @@ func (c *Coordinator) Done() bool {
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
-	c := Coordinator{}
-	c.filenames = files
-	c.mapped = make([]bool, len(c.filenames))
-	c.nReduce = nReduce
+	c := Coordinator{
+		filenames: files,
+		mapped:    make([]Status, len(files)),
+		reduced:   make([]Status, len(files)),
+		nReduce:   nReduce,
+	}
 
 	c.server()
 	return &c
 }
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
+	c.mappedLock.Lock()
+
 	for i, v := range c.mapped {
-		if !v {
-			c.mapped[i] = true
+		if v == NotAssigned {
+			c.mapped[i] = Assigned
 			reply.MapNumber = i
 			reply.Filename = c.filenames[i]
 			reply.NReduce = c.nReduce
+			c.mappedLock.Unlock()
 			return nil
 		}
 	}
+
+	c.mappedLock.Unlock()
 	return errors.New("no available map tasks")
+}
+
+func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedReply) error {
+	c.mappedLock.Lock()
+	c.mapped[args.Number] = Completed
+	c.mappedLock.Unlock()
+	return nil
 }

@@ -113,7 +113,7 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 	var encoders []*json.Encoder
 	for i := range reply.NReduce {
 		oname := fmt.Sprintf("mr-out-%d-%d.json", reply.MapNumber, i)
-		
+
 		ofile, err := os.Create(oname)
 		if err != nil {
 			return err
@@ -131,6 +131,15 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	args := CompletedArgs{
+		Number: reply.MapNumber,
+	}
+	
+	ok := call("Coordinator.MappingCompleted", &args, nil)
+	if !ok {
+		fmt.Printf("call Coordinator.MappingCompleted failed!\n")
 	}
 	return nil
 }
