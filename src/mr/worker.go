@@ -117,7 +117,7 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 
 	var encoders []*json.Encoder
 	for i := range reply.NReduce {
-		oname := fmt.Sprintf("mr-out-%d-%d.json", reply.TaskNumber, i)
+		oname := fmt.Sprintf("mr-%d-%d.json", reply.TaskNumber, i)
 
 		ofile, err := os.Create(oname)
 		if err != nil {
