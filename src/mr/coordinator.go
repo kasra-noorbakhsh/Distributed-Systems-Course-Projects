@@ -7,8 +7,10 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
-	// "time"
+	"time"
+	// "fmt"
 )
+const TaskTimeout = 10
 
 type TaskStatus int
 
@@ -22,6 +24,7 @@ type TaskState struct {
 	status TaskStatus
 	time   int64
 }
+
 type Coordinator struct {
 	filenames   []string
 	mapped      []TaskState
@@ -31,6 +34,9 @@ type Coordinator struct {
 	reducedLock sync.Mutex
 }
 
+func (s TaskState) NeedsAssignment(now int64) bool {
+	return s.status == NotAssigned || (s.status == Assigned && now - s.time > TaskTimeout)
+}
 // an example RPC handler.
 //
 // the RPC argument and reply types are defined in rpc.go.
@@ -93,11 +99,13 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 }
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
-	// now := time.Now().Unix()
+	now := time.Now().Unix()
+
 	c.mappedLock.Lock()
 	for i, state := range c.mapped {
-		if state.status == NotAssigned {
+		if state.NeedsAssignment(now) {
 			c.mapped[i].status = Assigned
+			c.mapped[i].time = time.Now().Unix()
 			reply.TaskType = Map
 			reply.TaskNumber = i
 			reply.Filename = c.filenames[i]
@@ -111,8 +119,9 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 
 	c.reducedLock.Lock()
 	for i, state := range c.reduced {
-		if state.status == NotAssigned {
+		if state.NeedsAssignment(now) {
 			c.reduced[i].status = Assigned
+			c.reduced[i].time = time.Now().Unix()
 			reply.TaskType = Reduce
 			reply.TaskNumber = i
 
