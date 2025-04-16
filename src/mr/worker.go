@@ -3,11 +3,10 @@ package mr
 import (
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/rpc"
 	"os"
-	"sort"
 )
 
 
@@ -29,7 +28,8 @@ func ihash(key string) int {
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
-	requestTask()
+	filename := requestTask()
+	mapTask(filename, mapf)
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
 
@@ -83,7 +83,7 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 	return false
 }
 
-func requestTask() {
+func requestTask() string {
 	args := GetTaskArgs{}
 	reply := GetTaskReply{}
 
@@ -93,4 +93,34 @@ func requestTask() {
 	} else {
 		fmt.Printf("call failed!\n")
 	}
+	return reply.Filename
+}
+
+func mapTask(filename string, mapf func(string, string) []KeyValue) error{
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	file.Close()
+
+	kva := mapf(filename, string(content))
+
+	oname := "mr-out-1"
+	ofile, err := os.Create(oname)
+	if err != nil {
+		return err
+    }
+	defer file.Close()
+
+	for _, kv := range kva {
+		_, err := fmt.Fprintf(ofile, "%s %s\n", kv.Key, kv.Value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
