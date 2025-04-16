@@ -10,6 +10,7 @@ import (
 	"time"
 	// "fmt"
 )
+
 const TaskTimeout = 10
 
 type TaskStatus int
@@ -35,8 +36,9 @@ type Coordinator struct {
 }
 
 func (s TaskState) NeedsAssignment(now int64) bool {
-	return s.status == NotAssigned || (s.status == Assigned && now - s.time > TaskTimeout)
+	return s.status == NotAssigned || (s.status == Assigned && now-s.time > TaskTimeout)
 }
+
 // an example RPC handler.
 //
 // the RPC argument and reply types are defined in rpc.go.
