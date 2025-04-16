@@ -78,7 +78,10 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	for {
-		reply := requestTask()
+		reply, ok := requestTask()
+		if !ok {
+			break
+		}
 		switch reply.TaskType {
 		case Map:
 			mapTask(mapf, reply)
@@ -91,19 +94,17 @@ func Worker(mapf func(string, string) []KeyValue,
 
 }
 
-func requestTask() GetTaskReply {
+func requestTask() (GetTaskReply, bool) {
 	args := GetTaskArgs{}
 	reply := GetTaskReply{}
 
 	ok := call("Coordinator.GetTask", &args, &reply)
 	if ok {
-		if reply.TaskType != NoTask {
-			// fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
-		}
-	} else {
-		fmt.Printf("call failed!\n")
+		// if reply.TaskType != NoTask {
+		// fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
+		// }
 	}
-	return reply
+	return reply, ok
 }
 
 func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {

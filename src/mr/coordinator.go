@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -117,14 +116,13 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	}
 	c.reducedLock.Unlock()
 	return nil
-	// return errors.New("no available map tasks")
 }
 
 func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedReply) error {
 	c.mappedLock.Lock()
 	c.mapped[args.Number] = Completed
 	c.mappedLock.Unlock()
-	fmt.Printf("Maping %d Completed\n", args.Number)
+	// fmt.Printf("Maping %d Completed\n", args.Number)
 	return nil
 }
 
@@ -132,6 +130,6 @@ func (c *Coordinator) ReducingCompleted(args *CompletedArgs, reply *CompletedRep
 	c.reducedLock.Lock()
 	c.reduced[args.Number] = Completed
 	c.reducedLock.Unlock()
-	fmt.Printf("Reducing %d Completed\n", args.Number)
+	// fmt.Printf("Reducing %d Completed\n", args.Number)
 	return nil
 }
