@@ -9,7 +9,6 @@ import (
 	"os"
 )
 
-
 // Map functions return a slice of KeyValue.
 type KeyValue struct {
 	Key   string
@@ -22,17 +21,6 @@ func ihash(key string) int {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return int(h.Sum32() & 0x7fffffff)
-}
-
-// main/mrworker.go calls this function.
-func Worker(mapf func(string, string) []KeyValue,
-	reducef func(string, []string) string) {
-
-	filename := requestTask()
-	mapTask(filename, mapf)
-	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
-
 }
 
 // example function to show how to make an RPC call to the coordinator.
@@ -83,7 +71,19 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 	return false
 }
 
-func requestTask() string {
+// main/mrworker.go calls this function.
+func Worker(mapf func(string, string) []KeyValue,
+	reducef func(string, []string) string) {
+
+	filename, mapNumber := requestTask()
+	mapTask(mapf, filename, mapNumber)
+
+	// uncomment to send the Example RPC to the coordinator.
+	// CallExample()
+
+}
+
+func requestTask() (string, int) {
 	args := GetTaskArgs{}
 	reply := GetTaskReply{}
 
@@ -93,10 +93,10 @@ func requestTask() string {
 	} else {
 		fmt.Printf("call failed!\n")
 	}
-	return reply.Filename
+	return reply.Filename, reply.MapNumber
 }
 
-func mapTask(filename string, mapf func(string, string) []KeyValue) error{
+func mapTask(mapf func(string, string) []KeyValue, filename string, mapNumber int) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
@@ -109,11 +109,11 @@ func mapTask(filename string, mapf func(string, string) []KeyValue) error{
 
 	kva := mapf(filename, string(content))
 
-	oname := "mr-out-1"
+	oname := fmt.Sprintf("mr-out-%d", mapNumber)
 	ofile, err := os.Create(oname)
 	if err != nil {
 		return err
-    }
+	}
 	defer file.Close()
 
 	for _, kv := range kva {
