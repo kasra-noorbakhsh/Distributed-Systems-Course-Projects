@@ -7,20 +7,25 @@ import (
 	"net/rpc"
 	"os"
 	"sync"
+	// "time"
 )
 
-type Status int
+type TaskStatus int
 
 const (
-	NotAssigned Status = iota
+	NotAssigned TaskStatus = iota
 	Assigned
 	Completed
 )
 
+type TaskState struct {
+	status TaskStatus
+	time   int64
+}
 type Coordinator struct {
 	filenames   []string
-	mapped      []Status
-	reduced     []Status
+	mapped      []TaskState
+	reduced     []TaskState
 	nReduce     int
 	mappedLock  sync.Mutex
 	reducedLock sync.Mutex
@@ -53,8 +58,8 @@ func (c *Coordinator) server() {
 func (c *Coordinator) Done() bool {
 
 	c.mappedLock.Lock()
-	for _, status := range c.mapped {
-		if status != Completed {
+	for _, state := range c.mapped {
+		if state.status != Completed {
 			c.mappedLock.Unlock()
 			return false
 		}
@@ -62,8 +67,8 @@ func (c *Coordinator) Done() bool {
 	c.mappedLock.Unlock()
 
 	c.reducedLock.Lock()
-	for _, status := range c.reduced {
-		if status != Completed {
+	for _, state := range c.reduced {
+		if state.status != Completed {
 			c.reducedLock.Unlock()
 			return false
 		}
@@ -78,8 +83,8 @@ func (c *Coordinator) Done() bool {
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{
 		filenames: files,
-		mapped:    make([]Status, len(files)),
-		reduced:   make([]Status, nReduce),
+		mapped:    make([]TaskState, len(files)),
+		reduced:   make([]TaskState, nReduce),
 		nReduce:   nReduce,
 	}
 
@@ -88,10 +93,11 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 }
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
+	// now := time.Now().Unix()
 	c.mappedLock.Lock()
-	for i, v := range c.mapped {
-		if v == NotAssigned {
-			c.mapped[i] = Assigned
+	for i, state := range c.mapped {
+		if state.status == NotAssigned {
+			c.mapped[i].status = Assigned
 			reply.TaskType = Map
 			reply.TaskNumber = i
 			reply.Filename = c.filenames[i]
@@ -104,9 +110,9 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	c.mappedLock.Unlock()
 
 	c.reducedLock.Lock()
-	for i, v := range c.reduced {
-		if v == NotAssigned {
-			c.reduced[i] = Assigned
+	for i, state := range c.reduced {
+		if state.status == NotAssigned {
+			c.reduced[i].status = Assigned
 			reply.TaskType = Reduce
 			reply.TaskNumber = i
 
@@ -120,7 +126,7 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 
 func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedReply) error {
 	c.mappedLock.Lock()
-	c.mapped[args.Number] = Completed
+	c.mapped[args.Number].status = Completed
 	c.mappedLock.Unlock()
 	// fmt.Printf("Maping %d Completed\n", args.Number)
 	return nil
@@ -128,7 +134,7 @@ func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedRepl
 
 func (c *Coordinator) ReducingCompleted(args *CompletedArgs, reply *CompletedReply) error {
 	c.reducedLock.Lock()
-	c.reduced[args.Number] = Completed
+	c.reduced[args.Number].status = Completed
 	c.reducedLock.Unlock()
 	// fmt.Printf("Reducing %d Completed\n", args.Number)
 	return nil
