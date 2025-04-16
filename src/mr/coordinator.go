@@ -68,7 +68,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{
 		filenames: files,
 		mapped:    make([]Status, len(files)),
-		reduced:   make([]Status, len(files)),
+		reduced:   make([]Status, nReduce),
 		nReduce:   nReduce,
 	}
 
@@ -78,19 +78,32 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	c.mappedLock.Lock()
-
 	for i, v := range c.mapped {
 		if v == NotAssigned {
 			c.mapped[i] = Assigned
-			reply.MapNumber = i
+			reply.TaskType = Map
+			reply.TaskNumber = i
 			reply.Filename = c.filenames[i]
 			reply.NReduce = c.nReduce
+
 			c.mappedLock.Unlock()
 			return nil
 		}
 	}
-
 	c.mappedLock.Unlock()
+
+	c.reducedLock.Lock()
+	for i, v := range c.reduced {
+		if v == NotAssigned {
+			c.reduced[i] = Assigned
+			reply.TaskType = Reduce
+			reply.TaskNumber = i
+
+			c.reducedLock.Unlock()
+			return nil
+		}
+	}
+	c.reducedLock.Unlock()
 	return errors.New("no available map tasks")
 }
 
@@ -98,5 +111,6 @@ func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedRepl
 	c.mappedLock.Lock()
 	c.mapped[args.Number] = Completed
 	c.mappedLock.Unlock()
+	fmt.Printf("Maping %d Completed\n", args.Number)
 	return nil
 }

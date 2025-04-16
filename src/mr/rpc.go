@@ -11,6 +11,13 @@ import (
 	"strconv"
 )
 
+type TaskType int
+
+const (
+	Map TaskType = iota
+	Reduce
+)
+
 //
 // example to show how to declare the arguments
 // and reply for an RPC.
@@ -28,9 +35,10 @@ type GetTaskArgs struct {
 }
 
 type GetTaskReply struct {
-	MapNumber int
-	Filename  string
-	NReduce   int
+	TaskType   TaskType
+	TaskNumber int
+	Filename   string
+	NReduce    int
 }
 
 type CompletedArgs struct {
@@ -38,7 +46,6 @@ type CompletedArgs struct {
 }
 
 type CompletedReply struct {
-
 }
 
 // Add your RPC definitions here.

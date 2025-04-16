@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/rpc"
 	"os"
+	"path/filepath"
 )
 
 // Map functions return a slice of KeyValue.
@@ -77,8 +78,12 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	reply := requestTask()
-	mapTask(mapf, reply)
-
+	switch reply.TaskType {
+	case Map:
+		mapTask(mapf, reply)
+	case Reduce:
+		reduceTask(reducef, reply.TaskNumber)
+	}
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
 
@@ -90,7 +95,7 @@ func requestTask() GetTaskReply {
 
 	ok := call("Coordinator.GetTask", &args, &reply)
 	if ok {
-		fmt.Printf("reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.MapNumber, reply.Filename, reply.NReduce)
+		fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
 	} else {
 		fmt.Printf("call failed!\n")
 	}
@@ -112,7 +117,7 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 
 	var encoders []*json.Encoder
 	for i := range reply.NReduce {
-		oname := fmt.Sprintf("mr-out-%d-%d.json", reply.MapNumber, i)
+		oname := fmt.Sprintf("mr-out-%d-%d.json", reply.TaskNumber, i)
 
 		ofile, err := os.Create(oname)
 		if err != nil {
@@ -134,12 +139,54 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 	}
 
 	args := CompletedArgs{
-		Number: reply.MapNumber,
+		Number: reply.TaskNumber,
 	}
-	
+
 	ok := call("Coordinator.MappingCompleted", &args, nil)
 	if !ok {
 		fmt.Printf("call Coordinator.MappingCompleted failed!\n")
+	}
+	return nil
+}
+
+func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
+	pattern := fmt.Sprintf("mr-*-%d.json", reduceNumber)
+	filenames, err := filepath.Glob(pattern)
+	if err != nil {
+		return err
+	}
+
+	var kva []KeyValue
+
+	for _, filename := range filenames {
+		file, err := os.Open(filename)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		dec := json.NewDecoder(file)
+		for {
+			var kv KeyValue
+			if err := dec.Decode(&kv); err != nil {
+				break
+			}
+			kva = append(kva, kv)
+		}
+	}
+
+	values := make(map[string][]string)
+	for _, kv := range kva {
+		values[kv.Key] = append(values[kv.Key], kv.Value)
+	}
+
+	oname := fmt.Sprintf("mr-out-%d", reduceNumber)
+	ofile, _ := os.Create(oname)
+	defer ofile.Close()
+
+	for key, value := range values {
+		output := reducef(key, value)
+		fmt.Fprintf(ofile, "%v %v\n", key, output)
 	}
 	return nil
 }
