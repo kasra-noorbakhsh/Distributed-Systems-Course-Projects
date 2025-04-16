@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -109,23 +110,24 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 
 	kva := mapf(reply.Filename, string(content))
 
-	var ofiles []*os.File
+	var encoders []*json.Encoder
 	for i := range reply.NReduce {
-		oname := fmt.Sprintf("mr-out-%d-%d", reply.MapNumber, i)
+		oname := fmt.Sprintf("mr-out-%d-%d.json", reply.MapNumber, i)
+		
 		ofile, err := os.Create(oname)
-
 		if err != nil {
 			return err
 		}
 		defer ofile.Close()
 
-		ofiles = append(ofiles, ofile)
+		encoder := json.NewEncoder(ofile)
+		encoders = append(encoders, encoder)
 	}
 
 	for _, kv := range kva {
 		reduceNumber := ihash(kv.Key) % reply.NReduce
-		_, err := fmt.Fprintf(ofiles[reduceNumber], "%s %s\n", kv.Key, kv.Value)
 
+		err := encoders[reduceNumber].Encode(kv)
 		if err != nil {
 			return err
 		}
