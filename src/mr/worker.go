@@ -161,7 +161,6 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 	}
 
 	var kva []KeyValue
-
 	for _, filename := range filenames {
 		file, err := os.Open(filename)
 		if err != nil {
@@ -179,10 +178,7 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 		}
 	}
 
-	values := make(map[string][]string)
-	for _, kv := range kva {
-		values[kv.Key] = append(values[kv.Key], kv.Value)
-	}
+	values := groupByKey(kva)
 
 	oname := fmt.Sprintf("mr-out-%d", reduceNumber)
 	ofile, _ := os.Create(oname)
@@ -195,6 +191,14 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 
 	callReducingCompleted(reduceNumber)
 	return nil
+}
+
+func groupByKey(kva []KeyValue) map[string][]string {
+	values := make(map[string][]string)
+	for _, kv := range kva {
+		values[kv.Key] = append(values[kv.Key], kv.Value)
+	}
+	return values
 }
 
 func filesToReduce(reduceNumber int) ([]string, error) {
