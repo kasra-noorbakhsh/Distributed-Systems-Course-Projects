@@ -155,8 +155,7 @@ func getContent(filename string) []byte {
 }
 
 func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
-	pattern := fmt.Sprintf("mr-*-%d.json", reduceNumber)
-	filenames, err := filepath.Glob(pattern)
+	filenames, err := filesToReduce(reduceNumber)
 	if err != nil {
 		return err
 	}
@@ -196,6 +195,12 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 
 	callReducingCompleted(reduceNumber)
 	return nil
+}
+
+func filesToReduce(reduceNumber int) ([]string, error) {
+	pattern := fmt.Sprintf("mr-*-%d.json", reduceNumber)
+	filenames, err := filepath.Glob(pattern)
+	return filenames, err
 }
 
 func callReducingCompleted(reduceNumber int) {
