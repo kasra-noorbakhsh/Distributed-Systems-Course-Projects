@@ -65,14 +65,9 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 
-	c.mappedLock.Lock()
-	for _, state := range c.mapped {
-		if state.status != Completed {
-			c.mappedLock.Unlock()
-			return false
-		}
+	if !c.MappingDone() {
+		return false
 	}
-	c.mappedLock.Unlock()
 
 	c.reducedLock.Lock()
 	for _, state := range c.reduced {
@@ -82,6 +77,18 @@ func (c *Coordinator) Done() bool {
 		}
 	}
 	c.reducedLock.Unlock()
+	return true
+}
+
+func (c *Coordinator) MappingDone() bool {
+	c.mappedLock.Lock()
+	for _, state := range c.mapped {
+		if state.status != Completed {
+			c.mappedLock.Unlock()
+			return false
+		}
+	}
+	c.mappedLock.Unlock()
 	return true
 }
 
@@ -119,6 +126,10 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	}
 	c.mappedLock.Unlock()
 
+	if !c.MappingDone() {
+		return nil
+	}
+	
 	c.reducedLock.Lock()
 	for i, state := range c.reduced {
 		if state.NeedsAssignment(now) {
