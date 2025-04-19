@@ -89,9 +89,6 @@ func Worker(mapf func(string, string) []KeyValue,
 			reduceTask(reducef, reply.TaskNumber)
 		}
 	}
-	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
-
 }
 
 func requestTask() (GetTaskReply, bool) {
@@ -103,15 +100,7 @@ func requestTask() (GetTaskReply, bool) {
 }
 
 func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
-	file, err := os.Open(reply.Filename)
-	if err != nil {
-		log.Fatalf("cannot open %v", reply.Filename)
-	}
-	content, err := io.ReadAll(file)
-	if err != nil {
-		log.Fatalf("cannot read %v", reply.Filename)
-	}
-	file.Close()
+	content := getContent(reply.Filename)
 
 	kva := mapf(reply.Filename, string(content))
 
@@ -146,6 +135,19 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 		fmt.Printf("call Coordinator.MappingCompleted failed!\n")
 	}
 	return nil
+}
+
+func getContent(filename string) []byte {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	file.Close()
+	return content
 }
 
 func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
