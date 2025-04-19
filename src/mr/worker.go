@@ -127,14 +127,18 @@ func mapTask(mapf func(string, string) []KeyValue, reply GetTaskReply) error {
 		}
 	}
 
+	callMappingCompleted(reply.TaskNumber)
+	return nil
+}
+
+func callMappingCompleted(mappingNumber int) {
 	args := CompletedArgs{
-		Number: reply.TaskNumber,
+		Number: mappingNumber,
 	}
 	ok := call("Coordinator.MappingCompleted", &args, nil)
 	if !ok {
 		fmt.Printf("call Coordinator.MappingCompleted failed!\n")
 	}
-	return nil
 }
 
 func getContent(filename string) []byte {
@@ -190,6 +194,11 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 		fmt.Fprintf(ofile, "%v %v\n", key, output)
 	}
 
+	callReducingCompleted(reduceNumber)
+	return nil
+}
+
+func callReducingCompleted(reduceNumber int) {
 	args := CompletedArgs{
 		Number: reduceNumber,
 	}
@@ -197,5 +206,4 @@ func reduceTask(reducef func(string, []string) string, reduceNumber int) error {
 	if !ok {
 		fmt.Printf("call Coordinator.ReducingCompleted failed!\n")
 	}
-	return nil
 }
