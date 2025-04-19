@@ -155,7 +155,6 @@ func (c *Coordinator) MappingCompleted(args *CompletedArgs, reply *CompletedRepl
 	c.mappedLock.Lock()
 	c.mapped[args.Number].status = Completed
 	c.mappedLock.Unlock()
-	// fmt.Printf("Maping %d Completed\n", args.Number)
 	return nil
 }
 
@@ -163,6 +162,5 @@ func (c *Coordinator) ReducingCompleted(args *CompletedArgs, reply *CompletedRep
 	c.reducedLock.Lock()
 	c.reduced[args.Number].status = Completed
 	c.reducedLock.Unlock()
-	// fmt.Printf("Reducing %d Completed\n", args.Number)
 	return nil
 }

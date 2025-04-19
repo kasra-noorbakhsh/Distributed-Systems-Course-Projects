@@ -99,11 +99,6 @@ func requestTask() (GetTaskReply, bool) {
 	reply := GetTaskReply{}
 
 	ok := call("Coordinator.GetTask", &args, &reply)
-	if ok {
-		// if reply.TaskType != NoTask {
-		// 	fmt.Printf("reply.task %d; reply.MapNumber %v; reply.Filename %s, reply.NReduce %v\n", reply.TaskType, reply.TaskNumber, reply.Filename, reply.NReduce)
-		// }
-	}
 	return reply, ok
 }
 
