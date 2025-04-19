@@ -64,11 +64,16 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
-
 	if !c.MappingDone() {
 		return false
 	}
+	if !c.ReducingDone() {
+		return false
+	}
+	return true
+}
 
+func (c *Coordinator) ReducingDone() bool {
 	c.reducedLock.Lock()
 	for _, state := range c.reduced {
 		if state.status != Completed {
@@ -129,7 +134,7 @@ func (c *Coordinator) GetTask(args *GetTaskArgs, reply *GetTaskReply) error {
 	if !c.MappingDone() {
 		return nil
 	}
-	
+
 	c.reducedLock.Lock()
 	for i, state := range c.reduced {
 		if state.NeedsAssignment(now) {
