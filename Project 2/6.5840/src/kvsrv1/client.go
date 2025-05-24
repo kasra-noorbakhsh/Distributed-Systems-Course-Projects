@@ -64,6 +64,30 @@ The Get function will retry until it succeeds (unless it gets ErrNoKey)
 // must match the declared types of the RPC handler function's
 // arguments. Additionally, reply must be passed as a pointer.
 func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
-	// You will have to modify this function.
-	return rpc.ErrNoKey
+	args := rpc.PutArgs{Key: key, Value: value, Version: version}
+	var reply rpc.PutReply
+
+	// First attempt
+	ok := ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
+	if ok {
+		if reply.Err == rpc.ErrVersion {
+			return rpc.ErrVersion
+		} else if reply.Err == rpc.OK {
+			return rpc.OK
+		}
+	}
+
+	// Retry loop
+	for {
+		ok = ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
+		if ok {
+			if reply.Err == rpc.ErrVersion {
+				return rpc.ErrMaybe
+			} else if reply.Err == rpc.OK {
+				return rpc.OK
+			}
+			// unknown error; continue retrying
+		}
+		// network failure; continue retrying
+	}
 }
