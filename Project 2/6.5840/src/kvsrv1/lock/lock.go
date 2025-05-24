@@ -1,11 +1,15 @@
 package lock
 
 import (
-	"6.5840/kvtest1"
+	"time"
+
+	"6.5840/kvsrv1/rpc"
+	kvtest "6.5840/kvtest1"
 )
 
-const key_id_length = 8
-
+const KEY_ID_LENGTH = 8
+const FREE = "free"
+const BACKOFF_TIME = 5
 
 type Lock struct {
 	// IKVClerk is a go interface for k/v clerks: the interface hides
@@ -14,7 +18,7 @@ type Lock struct {
 	// MakeLock().
 	ck kvtest.IKVClerk
 	// You may add code here
-	key string
+	key   string
 	value string
 }
 
@@ -25,15 +29,39 @@ type Lock struct {
 // precisely what the lock state is).
 func MakeLock(ck kvtest.IKVClerk, l string) *Lock {
 	lk := &Lock{
-			ck: ck,
-			key: l,
-			value: kvtest.RandValue(key_id_length),
-		}
+		ck:    ck,
+		key:   l,
+		value: kvtest.RandValue(KEY_ID_LENGTH),
+	}
 	return lk
 }
 
 func (lk *Lock) Acquire() {
-	// Your code here
+	for {
+		value, version, error := lk.ck.Get(lk.key)
+		free := value == FREE
+		first_owner := error == rpc.ErrNoKey
+		if first_owner {
+			err := lk.ck.Put(
+				lk.key,
+				lk.value,
+				0,
+			)
+			if err == rpc.OK {
+				return
+			}
+		} else if free {
+			err := lk.ck.Put(
+				lk.key,
+				lk.value,
+				version,
+			)
+			if err == rpc.OK {
+				return
+			}
+		}
+		time.Sleep(BACKOFF_TIME * time.Millisecond)
+	}
 }
 
 func (lk *Lock) Release() {
