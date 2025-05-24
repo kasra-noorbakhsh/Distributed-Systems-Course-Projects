@@ -4,10 +4,9 @@ import (
 	"time"
 
 	"6.5840/kvsrv1/rpc"
-	"6.5840/kvtest1"
-	"6.5840/tester1"
+	kvtest "6.5840/kvtest1"
+	tester "6.5840/tester1"
 )
-
 
 const QUERY_BACKOFF_TIME = 100
 
@@ -71,9 +70,17 @@ func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
 	var reply rpc.PutReply
 
 	ok := ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
-	if !ok {
-		panic("Put RPC failed")
+	if ok {
+		return reply.Err
+	} else {
+		for {
+			ok := ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
+			if ok {
+				if reply.Err == rpc.ErrVersion {
+					return rpc.ErrMaybe
+				}
+			}
+		}
 	}
 
-	return reply.Err
 }
