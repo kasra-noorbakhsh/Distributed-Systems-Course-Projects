@@ -55,7 +55,30 @@ func (kv *KVServer) Get(args *rpc.GetArgs, reply *rpc.GetReply) {
 // If the key doesn't exist, Put installs the value if the
 // args.Version is 0, and returns ErrNoKey otherwise.
 func (kv *KVServer) Put(args *rpc.PutArgs, reply *rpc.PutReply) {
-	// Your code here.
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+
+	if pair, ok := kv.store[args.Key]; ok {
+		if pair.Version != args.Version {
+			reply.Err = rpc.ErrVersion
+		} else {
+			kv.store[args.Key] = KVPair{
+				Value:   args.Value,
+				Version: pair.Version + 1,
+			}
+			reply.Err = rpc.OK
+		}
+	} else {
+		if args.Version == 0 {
+			kv.store[args.Key] = KVPair{
+				Value:   args.Value,
+				Version: 1,
+			}
+			reply.Err = rpc.OK
+		} else {
+			reply.Err = rpc.ErrNoKey
+		}
+	}
 }
 
 // You can ignore Kill() for this lab
