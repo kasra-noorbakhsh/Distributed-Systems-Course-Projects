@@ -1,10 +1,15 @@
 package kvsrv
 
 import (
+	"time"
+
 	"6.5840/kvsrv1/rpc"
 	"6.5840/kvtest1"
 	"6.5840/tester1"
 )
+
+
+const QUERY_BACKOFF_TIME = 100
 
 type Clerk struct {
 	clnt   *tester.Clnt
@@ -30,11 +35,15 @@ func MakeClerk(clnt *tester.Clnt, server string) kvtest.IKVClerk {
 func (ck *Clerk) Get(key string) (string, rpc.Tversion, rpc.Err) {
 	args := rpc.GetArgs{Key: key}
 	var reply rpc.GetReply
+	for {
+		ok := ck.clnt.Call(ck.server, "KVServer.Get", &args, &reply)
+		if ok {
+			// Under reliable assumptions, we can treat this as fatal.
+			// panic("Get RPC failed")
+			break
 
-	ok := ck.clnt.Call(ck.server, "KVServer.Get", &args, &reply)
-	if !ok {
-		// Under reliable assumptions, we can treat this as fatal.
-		panic("Get RPC failed")
+		}
+		time.Sleep(QUERY_BACKOFF_TIME * time.Millisecond)
 	}
 
 	return reply.Value, reply.Version, reply.Err
