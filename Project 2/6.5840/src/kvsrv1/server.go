@@ -18,23 +18,36 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+type KVPair struct {
+	Value   string
+	Version rpc.Tversion
+}
 
 type KVServer struct {
-	mu sync.Mutex
-
-	// Your definitions here.
+	mu    sync.Mutex
+	store map[string]KVPair
 }
 
 func MakeKVServer() *KVServer {
-	kv := &KVServer{}
-	// Your code here.
+	kv := &KVServer{
+		store: make(map[string]KVPair),
+	}
 	return kv
 }
 
 // Get returns the value and version for args.Key, if args.Key
 // exists. Otherwise, Get returns ErrNoKey.
 func (kv *KVServer) Get(args *rpc.GetArgs, reply *rpc.GetReply) {
-	// Your code here.
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+
+	if pair, ok := kv.store[args.Key]; ok {
+		reply.Value = pair.Value
+		reply.Version = pair.Version
+		reply.Err = rpc.OK
+	} else {
+		reply.Err = rpc.ErrNoKey
+	}
 }
 
 // Update the value for a key if args.Version matches the version of
