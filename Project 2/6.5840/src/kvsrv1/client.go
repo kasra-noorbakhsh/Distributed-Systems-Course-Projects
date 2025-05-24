@@ -6,7 +6,6 @@ import (
 	"6.5840/tester1"
 )
 
-
 type Clerk struct {
 	clnt   *tester.Clnt
 	server string
@@ -69,4 +68,3 @@ func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
 
 	return reply.Err
 }
-
