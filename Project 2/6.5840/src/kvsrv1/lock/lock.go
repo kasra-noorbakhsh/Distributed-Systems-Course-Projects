@@ -65,5 +65,20 @@ func (lk *Lock) Acquire() {
 }
 
 func (lk *Lock) Release() {
-	// Your code here
+	value, version, error := lk.ck.Get(lk.key)
+	if error != rpc.OK {
+		panic("Tried to release a non-existing lock")
+	}
+	if value == lk.value {
+		for {
+			err := lk.ck.Put(
+				lk.key,
+				FREE,
+				version,
+			)
+			if err == rpc.OK {
+				break
+			}
+		}
+	}
 }
