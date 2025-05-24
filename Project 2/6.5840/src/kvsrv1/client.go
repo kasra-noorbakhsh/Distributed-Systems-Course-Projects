@@ -29,9 +29,22 @@ func MakeClerk(clnt *tester.Clnt, server string) kvtest.IKVClerk {
 // must match the declared types of the RPC handler function's
 // arguments. Additionally, reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) (string, rpc.Tversion, rpc.Err) {
-	// You will have to modify this function.
-	return "", 0, rpc.ErrNoKey
+	args := rpc.GetArgs{Key: key}
+	var reply rpc.GetReply
+
+	for {
+		ok := ck.clnt.Call(ck.server, "KVServer.Get", &args, &reply)
+		if ok {
+			return reply.Value, reply.Version, reply.Err
+		}
+		// retry on network failure or server error
+	}
 }
+
+/*
+KASRA'S COMMENT:
+The Get function will retry until it succeeds (unless it gets ErrNoKey)
+*/
 
 // Put updates key with value only if the version in the
 // request matches the version of the key at the server.  If the
