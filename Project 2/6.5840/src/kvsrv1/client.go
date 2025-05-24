@@ -32,19 +32,14 @@ func (ck *Clerk) Get(key string) (string, rpc.Tversion, rpc.Err) {
 	args := rpc.GetArgs{Key: key}
 	var reply rpc.GetReply
 
-	for {
-		ok := ck.clnt.Call(ck.server, "KVServer.Get", &args, &reply)
-		if ok {
-			return reply.Value, reply.Version, reply.Err
-		}
-		// retry on network failure or server error
+	ok := ck.clnt.Call(ck.server, "KVServer.Get", &args, &reply)
+	if !ok {
+		// Under reliable assumptions, we can treat this as fatal.
+		panic("Get RPC failed")
 	}
-}
 
-/*
-KASRA'S COMMENT:
-The Get function will retry until it succeeds (unless it gets ErrNoKey)
-*/
+	return reply.Value, reply.Version, reply.Err
+}
 
 // Put updates key with value only if the version in the
 // request matches the version of the key at the server.  If the
@@ -67,27 +62,11 @@ func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
 	args := rpc.PutArgs{Key: key, Value: value, Version: version}
 	var reply rpc.PutReply
 
-	// First attempt
 	ok := ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
-	if ok {
-		if reply.Err == rpc.ErrVersion {
-			return rpc.ErrVersion
-		} else if reply.Err == rpc.OK {
-			return rpc.OK
-		}
+	if !ok {
+		panic("Put RPC failed")
 	}
 
-	// Retry loop
-	for {
-		ok = ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
-		if ok {
-			if reply.Err == rpc.ErrVersion {
-				return rpc.ErrMaybe
-			} else if reply.Err == rpc.OK {
-				return rpc.OK
-			}
-			// unknown error; continue retrying
-		}
-		// network failure; continue retrying
-	}
+	return reply.Err
 }
+
