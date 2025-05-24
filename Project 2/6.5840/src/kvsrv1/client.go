@@ -74,6 +74,7 @@ func (ck *Clerk) Put(key, value string, version rpc.Tversion) rpc.Err {
 		return reply.Err
 	} else {
 		for {
+			time.Sleep(QUERY_BACKOFF_TIME * time.Millisecond)
 			ok := ck.clnt.Call(ck.server, "KVServer.Put", &args, &reply)
 			if ok {
 				if reply.Err == rpc.ErrVersion {
