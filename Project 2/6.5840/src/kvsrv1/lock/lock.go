@@ -9,7 +9,7 @@ import (
 
 const KEY_ID_LENGTH = 8
 const FREE = "free"
-const BACKOFF_TIME = 5
+const BACKOFF_TIME = 100
 
 type Lock struct {
 	// IKVClerk is a go interface for k/v clerks: the interface hides
@@ -60,7 +60,7 @@ func (lk *Lock) Acquire() {
 				return
 			}
 		}
-		time.Sleep(BACKOFF_TIME * time.Millisecond)
+		time.Sleep(BACKOFF_TIME * time.Microsecond)
 	}
 }
 
