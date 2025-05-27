@@ -40,19 +40,11 @@ func (lk *Lock) Acquire() {
 	for {
 		value, version, err := lk.ck.Get(lk.key)
 
-		switch {
-		case err == rpc.ErrNoKey: // First owner
-			err := lk.ck.Put(lk.key, lk.value, 0)
-			if err == rpc.OK {
-				return
+		if err == rpc.ErrNoKey || value == FREE {
+			if err == rpc.ErrNoKey { // First owner
+				version = 0 
 			}
-			if err == rpc.ErrMaybe {
-				value, _, err := lk.ck.Get(lk.key)
-				if err == rpc.OK && value == lk.value {
-					return
-				}
-			}
-		case value == FREE:
+
 			err := lk.ck.Put(lk.key, lk.value, version)
 			if err == rpc.OK {
 				return
