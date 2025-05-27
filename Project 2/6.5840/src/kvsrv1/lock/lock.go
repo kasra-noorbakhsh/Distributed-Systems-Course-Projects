@@ -42,11 +42,13 @@ func (lk *Lock) Acquire() {
 
 		switch {
 		case err == rpc.ErrNoKey: // First owner
-			if lk.ck.Put(lk.key, lk.value, 0) == rpc.OK {
+			err := lk.ck.Put(lk.key, lk.value, 0)
+			if err == rpc.OK || err == rpc.ErrMaybe {
 				return
 			}
 		case value == FREE:
-			if lk.ck.Put(lk.key, lk.value, version) == rpc.OK {
+			err := lk.ck.Put(lk.key, lk.value, version)
+			if err == rpc.OK || err == rpc.ErrMaybe {
 				return
 			}
 		}
@@ -61,12 +63,14 @@ func (lk *Lock) Release() {
 		panic("Tried to release a non-existing lock")
 	}
 	if value != lk.value {
-		return
+		panic("Try to released not owned lock")
 	}
 
 	for {
-		if lk.ck.Put(lk.key, FREE, version) == rpc.OK {
+		err := lk.ck.Put(lk.key, FREE, version)
+		if err == rpc.OK || err == rpc.ErrMaybe {
 			break
 		}
+		time.Sleep(BACKOFF_TIME * time.Microsecond)
 	}
 }
