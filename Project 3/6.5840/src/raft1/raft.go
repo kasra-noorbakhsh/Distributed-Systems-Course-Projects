@@ -16,7 +16,7 @@ import (
 	//	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raftapi"
-	"6.5840/tester1"
+	tester "6.5840/tester1"
 )
 
 type LogEntry struct {
@@ -35,7 +35,7 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 	currentTerm int
-	votedFor    int
+	votedFor    int 			// TODO: Initilize to zero
 	log         []LogEntry
 
 	commitIndex int
