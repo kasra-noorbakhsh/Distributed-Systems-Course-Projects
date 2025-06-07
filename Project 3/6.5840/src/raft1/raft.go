@@ -124,9 +124,30 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
+func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
+	if rf.log[rf.commitIndex].term > args.LastLogTerm {
+		return true
+	}
+	if rf.log[rf.commitIndex].term == args.LastLogTerm && rf.commitIndex > args.LastLogIndex {
+		return true
+	}
+	return false
+}
+
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
+	reply.Term = rf.currentTerm
+	
+	if args.Term < rf.currentTerm {
+		reply.VoteGranted = false
+		return
+	}
+	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId) && !rf.isMoreUpToDate(args) {
+		reply.VoteGranted = true
+		return
+	}
+	reply.VoteGranted = false
 }
 
 // example code to send a RequestVote RPC to a server.
