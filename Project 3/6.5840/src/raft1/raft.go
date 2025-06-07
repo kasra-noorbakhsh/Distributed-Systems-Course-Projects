@@ -138,12 +138,13 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
 	reply.Term = rf.currentTerm
-	
+
 	if args.Term < rf.currentTerm {
 		reply.VoteGranted = false
 		return
 	}
 	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId) && !rf.isMoreUpToDate(args) {
+		rf.votedFor = args.CandidateId
 		reply.VoteGranted = true
 		return
 	}
