@@ -19,6 +19,9 @@ import (
 	"6.5840/tester1"
 )
 
+type LogEntry struct {
+	term int
+}
 
 // A Go object implementing a single Raft peer.
 type Raft struct {
@@ -31,6 +34,13 @@ type Raft struct {
 	// Your data here (3A, 3B, 3C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
+	currentTerm int
+	votedFor int
+	log []LogEntry
+
+	commitIndex int
+	lastApplied int
+	
 
 }
 
