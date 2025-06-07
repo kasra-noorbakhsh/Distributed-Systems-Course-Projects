@@ -115,6 +115,8 @@ type RequestVoteArgs struct {
 // field names must start with capital letters!
 type RequestVoteReply struct {
 	// Your data here (3A).
+	Term int 
+	VoteGranted bool
 }
 
 // example RequestVote RPC handler.
