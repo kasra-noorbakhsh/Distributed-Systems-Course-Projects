@@ -186,6 +186,8 @@ type RequestVoteReply struct {
 }
 
 func (rf *Raft) lastLogTerm() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	if rf.commitIndex == -1 {
 		return -1
 	}
