@@ -132,7 +132,7 @@ func (rf *Raft) lastLogTerm() int {
 }
 
 func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
-	if rf.log[rf.commitIndex].term > args.LastLogTerm {
+	if rf.lastLogTerm() > args.LastLogTerm {
 		return true
 	}
 	if rf.lastLogTerm() == args.LastLogTerm && rf.commitIndex > args.LastLogIndex {
