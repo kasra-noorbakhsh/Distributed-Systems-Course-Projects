@@ -316,34 +316,55 @@ func (rf *Raft) ticker() {
 		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
 		rf.setVotedFor(rf.me)
 
+		votes := 1
+		voteCh := make(chan bool, len(rf.peers)-1)
+		termCh := make(chan int, len(rf.peers)-1)
+
 		args := RequestVoteArgs{
 			Term:         rf.getCurrentTerm(),
 			CandidateId:  rf.me,
 			LastLogIndex: rf.commitIndex,
 			LastLogTerm:  rf.lastLogTerm(),
 		}
-		reply := RequestVoteReply{}
 
-		votes := 1
 		for i := range rf.peers {
-			rf.sendRequestVote(i, &args, &reply)
+			if i == rf.me {
+				continue
+			}
+			go func(peer int) {
+				reply := RequestVoteReply{}
+				rf.sendRequestVote(peer, &args, &reply)
+				termCh <- reply.Term
+				voteCh <- reply.VoteGranted
+			}(i)
+		}
 
-			if reply.Term > rf.getCurrentTerm() {
-				rf.setCurrentTerm(reply.Term)
-				rf.setVotedFor(-1)
-				rf.resetTimer()
-				break
-			}
-			if reply.VoteGranted {
-				votes++
-			}
-			if votes > len(rf.peers)/2 {
-				rf.setIsLeader(true)
-				rf.sendHeartbeat()
-				fmt.Println(rf.me, "Became leader")
-				break
+		majority := len(rf.peers)/2 + 1
+		received := 1
+
+		for received < len(rf.peers) {
+			select {
+			case granted := <-voteCh:
+				received++
+				if granted {
+					votes++
+				}
+				if votes >= majority {
+					fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
+					rf.setIsLeader(true)
+					rf.sendHeartbeat()
+					return
+				}
+			case newTerm := <-termCh:
+				if newTerm > rf.getCurrentTerm() {
+					rf.setCurrentTerm(newTerm)
+					rf.setVotedFor(-1)
+					rf.resetTimer()
+					return
+				}
 			}
 		}
+		// rf.setVotedFor(-1)
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
 		// ms := 50 + (rand.Int63() % 300)
