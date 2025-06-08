@@ -211,8 +211,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = false
 		return
 	}
-	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId) && !rf.isMoreUpToDate(args) {
-		rf.votedFor = args.CandidateId
+	if (rf.getVotedFor() == -1 || rf.getVotedFor() == args.CandidateId) && !rf.isMoreUpToDate(args) {
+		rf.setVotedFor(args.CandidateId)
 		reply.VoteGranted = true
 		return
 	}
