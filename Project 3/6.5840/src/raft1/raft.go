@@ -87,7 +87,30 @@ func (rf *Raft) GetState() (int, bool) {
 	var term int
 	var isleader bool
 	// Your code here (3A).
-	return term, isleader
+	return rf.getCurrentTerm(), rf.getIsLeader()
+}
+
+func (rf *Raft) startTimer() {
+	if rf.timeout != nil {
+		rf.timeout.Stop()
+	}
+	var ms int64
+	if rf.getIsLeader() {
+		ms = 100
+	} else {
+		ms = 150 + (rand.Int63() % 150)
+	}
+	rf.timeout = time.NewTimer(time.Duration(ms) * time.Millisecond)
+}
+
+func (rf *Raft) resetTimer() {
+	var ms int64
+	if rf.getIsLeader() {
+		ms = 100
+	} else {
+		ms = 150 + (rand.Int63() % 150)
+	}
+	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
 }
 
 // save Raft's persistent state to stable storage,
