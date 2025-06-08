@@ -124,11 +124,18 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
+func (rf *Raft) lastLogTerm() int {
+	if rf.commitIndex == -1 {
+		return -1
+	}
+	return rf.log[rf.commitIndex].term
+}
+
 func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 	if rf.log[rf.commitIndex].term > args.LastLogTerm {
 		return true
 	}
-	if rf.log[rf.commitIndex].term == args.LastLogTerm && rf.commitIndex > args.LastLogIndex {
+	if rf.lastLogTerm() == args.LastLogTerm && rf.commitIndex > args.LastLogIndex {
 		return true
 	}
 	return false
