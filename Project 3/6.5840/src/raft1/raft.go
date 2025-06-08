@@ -40,6 +40,44 @@ type Raft struct {
 
 	commitIndex int
 	lastApplied int
+	timeout     *time.Timer
+	isLeader    bool
+}
+
+func (rf *Raft) getIsLeader() bool {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.isLeader
+}
+
+func (rf *Raft) setIsLeader(isLeader bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.isLeader = isLeader
+}
+
+func (rf *Raft) getCurrentTerm() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.currentTerm
+}
+
+func (rf *Raft) setCurrentTerm(term int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.currentTerm = term
+}
+
+func (rf *Raft) getVotedFor() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.votedFor
+}
+
+func (rf *Raft) setVotedFor(votedFor int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.votedFor = votedFor
 }
 
 // return currentTerm and whether this server
