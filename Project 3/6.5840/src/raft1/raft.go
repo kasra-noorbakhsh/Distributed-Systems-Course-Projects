@@ -8,6 +8,7 @@ package raft
 
 import (
 	//	"bytes"
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -83,9 +84,6 @@ func (rf *Raft) setVotedFor(votedFor int) {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-
-	var term int
-	var isleader bool
 	// Your code here (3A).
 	return rf.getCurrentTerm(), rf.getIsLeader()
 }
@@ -294,6 +292,16 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
+func (rf *Raft) sendHeartbeat() {
+	for i := range rf.peers {
+		args := AppendEntriesArgs{
+			Term: rf.getCurrentTerm(),
+		}
+		reply := AppendEntriesReply{}
+		rf.sendAppendEntries(i, &args, &reply)
+	}
+}
+
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
@@ -374,4 +382,23 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	go rf.ticker()
 
 	return rf
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	if args.Term > rf.getCurrentTerm() {
+		rf.setCurrentTerm(args.Term)
+	}
+	rf.resetTimer()
+}
+
+type AppendEntriesArgs struct {
+	Term int
+}
+
+type AppendEntriesReply struct {
+}
+
+func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
+	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+	return ok
 }
