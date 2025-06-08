@@ -295,10 +295,19 @@ func (rf *Raft) killed() bool {
 func (rf *Raft) sendHeartbeat() {
 	for i := range rf.peers {
 		args := AppendEntriesArgs{
-			Term: rf.getCurrentTerm(),
+			Term:     rf.getCurrentTerm(),
+			LeaderId: rf.me,
 		}
 		reply := AppendEntriesReply{}
 		rf.sendAppendEntries(i, &args, &reply)
+		if reply.Term > rf.getCurrentTerm() {
+			fmt.Println(rf.me, "became a follower")
+			rf.setCurrentTerm(reply.Term)
+			rf.setIsLeader(false)
+			rf.setVotedFor(-1)
+			rf.resetTimer()
+			return
+		}
 	}
 }
 
@@ -406,17 +415,28 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	reply.Term = rf.getCurrentTerm()
+	if args.Term < rf.getCurrentTerm() {
+		return
+	}
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 	}
+	if rf.getIsLeader() && args.LeaderId != rf.me {
+		fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
+		rf.setIsLeader(false)
+	}
+	rf.setVotedFor(-1)
 	rf.resetTimer()
 }
 
 type AppendEntriesArgs struct {
-	Term int
+	Term     int
+	LeaderId int
 }
 
 type AppendEntriesReply struct {
+	Term int
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
