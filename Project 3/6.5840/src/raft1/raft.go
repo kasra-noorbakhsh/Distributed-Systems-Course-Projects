@@ -295,15 +295,51 @@ func (rf *Raft) killed() bool {
 }
 
 func (rf *Raft) ticker() {
-	for rf.killed() == false {
-
+	for !rf.killed() {
 		// Your code here (3A)
 		// Check if a leader election should be started.
+		<-rf.timeout.C
+		rf.resetTimer()
 
+		if rf.getIsLeader() {
+			rf.sendHeartbeat()
+			continue
+		}
+		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
+		rf.setVotedFor(rf.me)
+
+		args := RequestVoteArgs{
+			Term:         rf.getCurrentTerm(),
+			CandidateId:  rf.me,
+			LastLogIndex: rf.commitIndex,
+			LastLogTerm:  rf.lastLogTerm(),
+		}
+		reply := RequestVoteReply{}
+
+		votes := 1
+		for i := range rf.peers {
+			rf.sendRequestVote(i, &args, &reply)
+
+			if reply.Term > rf.getCurrentTerm() {
+				rf.setCurrentTerm(reply.Term)
+				rf.setVotedFor(-1)
+				rf.resetTimer()
+				break
+			}
+			if reply.VoteGranted {
+				votes++
+			}
+			if votes > len(rf.peers)/2 {
+				rf.setIsLeader(true)
+				rf.sendHeartbeat()
+				fmt.Println(rf.me, "Became leader")
+				break
+			}
+		}
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
-		ms := 50 + (rand.Int63() % 300)
-		time.Sleep(time.Duration(ms) * time.Millisecond)
+		// ms := 50 + (rand.Int63() % 300)
+		// time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
 }
 
