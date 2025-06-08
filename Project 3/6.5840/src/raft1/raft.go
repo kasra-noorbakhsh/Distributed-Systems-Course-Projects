@@ -35,7 +35,7 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 	currentTerm int
-	votedFor    int 			// TODO: Initilize to zero
+	votedFor    int
 	log         []LogEntry
 
 	commitIndex int
@@ -261,6 +261,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (3A, 3B, 3C).
+	rf.currentTerm = 0
+	rf.votedFor = -1
+	rf.commitIndex = -1
+	rf.lastApplied = -1
+	rf.log = make([]LogEntry, 0)
+	rf.startTimer()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
