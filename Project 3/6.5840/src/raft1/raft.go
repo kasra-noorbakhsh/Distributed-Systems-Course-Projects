@@ -382,6 +382,7 @@ func (rf *Raft) ticker() {
 						// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
 						rf.setIsLeader(true)
 						go rf.sendHeartbeat()
+						rf.resetTimer()
 						rf.setVotedFor(-1)
 						return
 					}
