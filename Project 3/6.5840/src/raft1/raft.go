@@ -293,22 +293,31 @@ func (rf *Raft) killed() bool {
 }
 
 func (rf *Raft) sendHeartbeat() {
+	var wg sync.WaitGroup
 	for i := range rf.peers {
-		args := AppendEntriesArgs{
-			Term:     rf.getCurrentTerm(),
-			LeaderId: rf.me,
+		if i == rf.me {
+			continue
 		}
-		reply := AppendEntriesReply{}
-		rf.sendAppendEntries(i, &args, &reply)
-		if reply.Term > rf.getCurrentTerm() {
-			fmt.Println(rf.me, "became a follower")
-			rf.setCurrentTerm(reply.Term)
-			rf.setIsLeader(false)
-			rf.setVotedFor(-1)
-			rf.resetTimer()
-			return
-		}
+		wg.Add(1)
+		go func(server int) {
+			defer wg.Done()
+			args := AppendEntriesArgs{
+				Term:     rf.getCurrentTerm(),
+				LeaderId: rf.me,
+			}
+			reply := AppendEntriesReply{}
+			// fmt.Println(rf.me, "sending heartbeat to", server, "term:", rf.getCurrentTerm())
+			rf.sendAppendEntries(server, &args, &reply)
+			if reply.Term > rf.getCurrentTerm() {
+				fmt.Println(rf.me, "became a follower")
+				rf.setCurrentTerm(reply.Term)
+				rf.setIsLeader(false)
+				rf.setVotedFor(-1)
+				rf.resetTimer()
+			}
+		}(i)
 	}
+	wg.Wait()
 }
 
 func (rf *Raft) ticker() {
