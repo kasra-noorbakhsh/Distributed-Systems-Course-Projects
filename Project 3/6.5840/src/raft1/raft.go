@@ -332,6 +332,7 @@ func (rf *Raft) ticker() {
 			go rf.sendHeartbeat()
 			continue
 		}
+		fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
 		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
 		rf.setVotedFor(rf.me)
 
@@ -430,6 +431,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	// fmt.Println(rf.me, "received heartbeat from", args.LeaderId, "term:", args.Term, "current term", rf.currentTerm)
 	reply.Term = rf.getCurrentTerm()
 	if args.Term < rf.getCurrentTerm() {
 		return
