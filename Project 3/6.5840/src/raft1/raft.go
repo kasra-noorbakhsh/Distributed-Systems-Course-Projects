@@ -69,6 +69,12 @@ func (rf *Raft) setCurrentTerm(term int) {
 	rf.currentTerm = term
 }
 
+func (rf *Raft) incrementTerm()  {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.currentTerm++
+}
+
 func (rf *Raft) getVotedFor() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -343,7 +349,7 @@ func (rf *Raft) ticker() {
 			continue
 		}
 		// fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
-		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
+		rf.incrementTerm()
 		rf.setVotedFor(rf.me)
 
 		args := RequestVoteArgs{
