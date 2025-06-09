@@ -8,7 +8,7 @@ package raft
 
 import (
 	//	"bytes"
-	"fmt"
+	// "fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -204,7 +204,7 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 
 // example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	fmt.Println(rf.me, "received RequestVote from", args.CandidateId, "term:", args.Term, "current term:", rf.getCurrentTerm(), "votedFor:",  rf.getVotedFor())
+	// fmt.Println(rf.me, "received RequestVote from", args.CandidateId, "term:", args.Term, "current term:", rf.getCurrentTerm(), "votedFor:",  rf.getVotedFor())
 	// Your code here (3A, 3B).
 	reply.Term = rf.currentTerm
 
@@ -317,7 +317,7 @@ func (rf *Raft) sendHeartbeat() {
 			// fmt.Println(rf.me, "sending heartbeat to", server, "term:", rf.getCurrentTerm())
 			rf.sendAppendEntries(server, &args, &reply)
 			if reply.Term > rf.getCurrentTerm() {
-				fmt.Println(rf.me, "became a follower")
+				// fmt.Println(rf.me, "became a follower")
 				rf.setCurrentTerm(reply.Term)
 				rf.setIsLeader(false)
 				rf.setVotedFor(-1)
@@ -340,7 +340,7 @@ func (rf *Raft) ticker() {
 			go rf.sendHeartbeat()
 			continue
 		}
-		fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
+		// fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
 		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
 		rf.setVotedFor(rf.me)
 
@@ -379,10 +379,10 @@ func (rf *Raft) ticker() {
 						votes++
 					}
 					if votes >= majority {
-						fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
+						// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
 						rf.setIsLeader(true)
-						rf.setVotedFor(-1)
 						go rf.sendHeartbeat()
+						rf.setVotedFor(-1)
 						return
 					}
 				case newTerm := <-termCh:
@@ -448,7 +448,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.setCurrentTerm(args.Term)
 	}
 	if rf.getIsLeader() && args.LeaderId != rf.me {
-		fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
+		// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
 		rf.setIsLeader(false)
 	}
 	rf.setVotedFor(-1)
