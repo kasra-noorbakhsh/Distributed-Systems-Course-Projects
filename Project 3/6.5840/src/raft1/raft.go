@@ -328,7 +328,8 @@ func (rf *Raft) ticker() {
 		rf.resetTimer()
 
 		if rf.getIsLeader() {
-			rf.sendHeartbeat()
+			// fmt.Println(rf.me, "is leader, sending heartbeat")
+			go rf.sendHeartbeat()
 			continue
 		}
 		rf.setCurrentTerm(rf.getCurrentTerm() + 1)
