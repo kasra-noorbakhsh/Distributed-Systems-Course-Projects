@@ -360,28 +360,33 @@ func (rf *Raft) ticker() {
 		majority := len(rf.peers)/2 + 1
 		received := 1
 
-		for received < len(rf.peers) {
-			select {
-			case granted := <-voteCh:
-				received++
-				if granted {
-					votes++
-				}
-				if votes >= majority {
-					fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
-					rf.setIsLeader(true)
-					rf.sendHeartbeat()
-					return
-				}
-			case newTerm := <-termCh:
-				if newTerm > rf.getCurrentTerm() {
-					rf.setCurrentTerm(newTerm)
-					rf.setVotedFor(-1)
-					rf.resetTimer()
-					return
+		go func() {
+			for received < len(rf.peers) {
+				select {
+				case granted := <-voteCh:
+					received++
+					if granted {
+						votes++
+					}
+					if votes >= majority {
+						fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
+						rf.setIsLeader(true)
+						rf.setVotedFor(-1)
+						go rf.sendHeartbeat()
+						return
+					}
+				case newTerm := <-termCh:
+					if newTerm > rf.getCurrentTerm() {
+						rf.setCurrentTerm(newTerm)
+						rf.setVotedFor(-1)
+						rf.resetTimer()
+						return
+					}
 				}
 			}
-		}
+			rf.setVotedFor(-1)
+
+		}()
 		// rf.setVotedFor(-1)
 		// pause for a random amount of time between 50 and 350
 		// milliseconds.
