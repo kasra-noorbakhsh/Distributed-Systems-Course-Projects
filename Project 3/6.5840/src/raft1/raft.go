@@ -81,6 +81,12 @@ func (rf *Raft) setVotedFor(votedFor int) {
 	rf.votedFor = votedFor
 }
 
+func (rf *Raft) getCommitIndex() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.commitIndex
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -196,7 +202,7 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 	if rf.lastLogTerm() > args.LastLogTerm {
 		return true
 	}
-	if rf.lastLogTerm() == args.LastLogTerm && rf.commitIndex > args.LastLogIndex {
+	if rf.lastLogTerm() == args.LastLogTerm && rf.getCommitIndex() > args.LastLogIndex {
 		return true
 	}
 	return false
@@ -351,7 +357,7 @@ func (rf *Raft) ticker() {
 		args := RequestVoteArgs{
 			Term:         rf.getCurrentTerm(),
 			CandidateId:  rf.me,
-			LastLogIndex: rf.commitIndex,
+			LastLogIndex: rf.getCommitIndex(),
 			LastLogTerm:  rf.lastLogTerm(),
 		}
 
