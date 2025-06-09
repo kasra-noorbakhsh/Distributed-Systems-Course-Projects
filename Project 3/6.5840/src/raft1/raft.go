@@ -99,6 +99,13 @@ func (rf *Raft) getCommitIndex() int {
 	return rf.commitIndex
 }
 
+func (rf *Raft) getMajority() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	majority := len(rf.peers)/2 + 1
+	return majority
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -367,7 +374,7 @@ func (rf *Raft) ticker() {
 
 		votes := 1
 		received := 1
-		majority := len(rf.peers)/2 + 1
+		majority := rf.getMajority()
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
 		for i := range rf.peers {
