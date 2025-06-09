@@ -88,26 +88,26 @@ func (rf *Raft) GetState() (int, bool) {
 	return rf.getCurrentTerm(), rf.getIsLeader()
 }
 
+func (rf *Raft) getTimeoutDuration() int64 {
+	var ms int64
+	if rf.getIsLeader() {
+		ms = 100
+	} else {
+		ms = 150 + (rand.Int63() % 150)
+	}
+	return ms
+}
+
 func (rf *Raft) startTimer() {
 	if rf.timeout != nil {
 		rf.timeout.Stop()
 	}
-	var ms int64
-	if rf.getIsLeader() {
-		ms = 100
-	} else {
-		ms = 150 + (rand.Int63() % 150)
-	}
+	ms := rf.getTimeoutDuration()
 	rf.timeout = time.NewTimer(time.Duration(ms) * time.Millisecond)
 }
 
 func (rf *Raft) resetTimer() {
-	var ms int64
-	if rf.getIsLeader() {
-		ms = 100
-	} else {
-		ms = 150 + (rand.Int63() % 150)
-	}
+	ms := rf.getTimeoutDuration()
 	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
 }
 
