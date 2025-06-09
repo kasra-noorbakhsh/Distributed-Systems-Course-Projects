@@ -87,6 +87,12 @@ func (rf *Raft) setVotedFor(votedFor int) {
 	rf.votedFor = votedFor
 }
 
+func (rf *Raft) voteForSelf() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.votedFor = rf.me
+}
+
 func (rf *Raft) getCommitIndex() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -350,7 +356,7 @@ func (rf *Raft) ticker() {
 		}
 		// fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
 		rf.incrementTerm()
-		rf.setVotedFor(rf.me)
+		rf.voteForSelf()
 
 		args := RequestVoteArgs{
 			Term:         rf.getCurrentTerm(),
