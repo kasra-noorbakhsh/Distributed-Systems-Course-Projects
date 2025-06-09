@@ -307,14 +307,11 @@ func (rf *Raft) killed() bool {
 }
 
 func (rf *Raft) sendHeartbeat() {
-	var wg sync.WaitGroup
 	for i := range rf.peers {
 		if i == rf.me {
 			continue
 		}
-		wg.Add(1)
 		go func(server int) {
-			defer wg.Done()
 			args := AppendEntriesArgs{
 				Term:     rf.getCurrentTerm(),
 				LeaderId: rf.me,
@@ -331,7 +328,6 @@ func (rf *Raft) sendHeartbeat() {
 			}
 		}(i)
 	}
-	wg.Wait()
 }
 
 func (rf *Raft) ticker() {
