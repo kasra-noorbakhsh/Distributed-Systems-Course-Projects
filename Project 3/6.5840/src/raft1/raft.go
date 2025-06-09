@@ -93,6 +93,12 @@ func (rf *Raft) voteForSelf() {
 	rf.votedFor = rf.me
 }
 
+func (rf *Raft) clearVotedFor() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.votedFor = -1
+}
+
 func (rf *Raft) getCommitIndex() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -342,7 +348,7 @@ func (rf *Raft) sendHeartbeat() {
 				// fmt.Println(rf.me, "became a follower")
 				rf.setCurrentTerm(reply.Term)
 				rf.setIsLeader(false)
-				rf.setVotedFor(-1)
+				rf.clearVotedFor()
 				rf.resetTimer()
 			}
 		}(i)
@@ -394,7 +400,7 @@ func (rf *Raft) ticker() {
 				received++
 				if reply.Term > rf.getCurrentTerm() {
 					rf.setCurrentTerm(reply.Term)
-					rf.setVotedFor(-1)
+					rf.clearVotedFor()
 					rf.resetTimer()
 					return
 				}
@@ -406,11 +412,11 @@ func (rf *Raft) ticker() {
 					rf.setIsLeader(true)
 					go rf.sendHeartbeat()
 					rf.resetTimer()
-					rf.setVotedFor(-1)
+					rf.clearVotedFor()
 					return
 				}
 			}
-			rf.setVotedFor(-1)
+			rf.clearVotedFor()
 		}()
 	}
 }
@@ -461,7 +467,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
 		rf.setIsLeader(false)
 	}
-	rf.setVotedFor(-1)
+	rf.clearVotedFor()
 	rf.resetTimer()
 }
 
