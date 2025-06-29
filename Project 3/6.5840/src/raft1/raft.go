@@ -22,7 +22,8 @@ import (
 )
 
 type LogEntry struct {
-	term int
+	term    int
+	command interface{}
 }
 
 type State int
@@ -328,11 +329,37 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // term. the third return value is true if this server believes it is
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := -1
+	index := len(rf.log)
+	term := rf.getCurrentTerm()
+	prevLogIndex := index - 1
+	prevLogTerm := rf.log[prevLogIndex].term
 	isLeader := rf.getIsLeader()
-
 	// Your code here (3B).
+	if isLeader {
+		for i := range(rf.peers){
+			if i == rf.me{
+				continue
+			}else{
+				go func (server int)  {
+					log := LogEntry{
+						term: term,
+						command: command,
+					}
+					args := AppendEntriesArgs{
+						Term: term,
+						LeaderId: rf.me,
+						PrevLogIndex: prevLogIndex,
+						PrevLogTerm: prevLogTerm,
+						Entries: []LogEntry{log},
+						LeaderCommit: rf.commitIndex,
+					}
+					reply := AppendEntriesReply{}
+					rf.sendAppendEntries(server, &args, &reply)
+				}(i)
+			}
+		}
+	}
+
 
 	return index, term, isLeader
 }
@@ -497,12 +524,17 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 }
 
 type AppendEntriesArgs struct {
-	Term     int
-	LeaderId int
+	Term         int
+	LeaderId     int
+	PrevLogIndex int
+	PrevLogTerm  int
+	Entries      []LogEntry
+	LeaderCommit int
 }
 
 type AppendEntriesReply struct {
-	Term int
+	Term    int
+	success bool
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
