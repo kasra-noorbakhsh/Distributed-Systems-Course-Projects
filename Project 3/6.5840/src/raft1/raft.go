@@ -9,6 +9,7 @@ package raft
 import (
 	//	"bytes"
 	// "fmt"
+
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,14 @@ import (
 type LogEntry struct {
 	term int
 }
+
+type State int
+
+const (
+	FOLLOWER = iota
+	CANDIDATE
+	LEADER
+)
 
 // A Go object implementing a single Raft peer.
 type Raft struct {
@@ -42,20 +51,36 @@ type Raft struct {
 	commitIndex int
 	lastApplied int
 	timeout     *time.Timer
-	isLeader    bool
+	state       State
+}
+
+func (rf *Raft) setState(state_ State) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.state = state_
+}
+
+func (rf *Raft) getState() State {
+	rf.mu.Lock()
+	rf.mu.Unlock()
+	return rf.state
 }
 
 func (rf *Raft) getIsLeader() bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	return rf.isLeader
+	return rf.state == LEADER
 }
 
-func (rf *Raft) setIsLeader(isLeader bool) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.isLeader = isLeader
-}
+// func (rf *Raft) setIsLeader(isLeader bool) {
+// 	rf.mu.Lock()
+// 	defer rf.mu.Unlock()
+// 	if isLeader {
+// 		rf.state = LEADER
+// 	} else {
+// 		rf.state = FOLLOWER
+// 	}
+// }
 
 func (rf *Raft) getCurrentTerm() int {
 	rf.mu.Lock()
@@ -69,7 +94,7 @@ func (rf *Raft) setCurrentTerm(term int) {
 	rf.currentTerm = term
 }
 
-func (rf *Raft) incrementTerm()  {
+func (rf *Raft) incrementTerm() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	rf.currentTerm++
@@ -245,7 +270,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
-		rf.setIsLeader(false)
+		rf.setState(FOLLOWER)
 		rf.setVotedFor(args.CandidateId)
 		reply.VoteGranted = true
 		return
@@ -305,7 +330,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := -1
 	term := -1
-	isLeader := true
+	isLeader := rf.getIsLeader()
 
 	// Your code here (3B).
 
@@ -347,7 +372,7 @@ func (rf *Raft) sendHeartbeat() {
 			if reply.Term > rf.getCurrentTerm() {
 				// fmt.Println(rf.me, "became a follower")
 				rf.setCurrentTerm(reply.Term)
-				rf.setIsLeader(false)
+				rf.setState(FOLLOWER)
 				rf.clearVotedFor()
 				rf.resetTimer()
 			}
@@ -409,7 +434,7 @@ func (rf *Raft) ticker() {
 				}
 				if votes >= majority {
 					// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
-					rf.setIsLeader(true)
+					rf.setState(LEADER)
 					go rf.sendHeartbeat()
 					rf.resetTimer()
 					rf.clearVotedFor()
@@ -465,7 +490,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 	if rf.getIsLeader() && args.LeaderId != rf.me {
 		// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
-		rf.setIsLeader(false)
+		rf.setState(FOLLOWER)
 	}
 	rf.clearVotedFor()
 	rf.resetTimer()
