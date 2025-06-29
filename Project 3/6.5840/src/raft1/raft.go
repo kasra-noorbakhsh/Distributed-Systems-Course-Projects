@@ -22,8 +22,9 @@ import (
 )
 
 type LogEntry struct {
-	Term    int
-	Command interface{}
+	Term         int
+	CommandIndex int
+	Command      interface{}
 }
 
 type State int
@@ -330,15 +331,6 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // term. the third return value is true if this server believes it is
 // the leader.
 
-func ContainsUnreplicated(arr []bool) bool {
-	for _, v := range arr {
-		if !v {
-			return true
-		}
-	}
-	return false
-}
-
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := len(rf.log)
 	term := rf.getCurrentTerm()
@@ -358,23 +350,24 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		numberOfReplicated := 1
 		replies := make(chan AppendEntriesReply, len(rf.peers)-1)
 		go func() {
-				for numberOfReplicated != len(rf.peers) {
-					reply := <-replies
-					if reply.Success {
-						isReplicated[reply.Id] = true
-						numberOfReplicated += 1
-						if numberOfReplicated >= rf.getMajority(){
-							rf.commitIndex = index
-						}
+			for numberOfReplicated != len(rf.peers) {
+				reply := <-replies
+				if reply.Success {
+					isReplicated[reply.Id] = true
+					numberOfReplicated += 1
+					if numberOfReplicated >= rf.getMajority() {
+						rf.commitIndex = index
 					}
 				}
-			}()
+			}
+		}()
 		for i := range rf.peers {
 			go func(server int) {
 				for !isReplicated[server] {
 					log := LogEntry{
-						Term:    term,
-						Command: command,
+						Term:         term,
+						Command:      command,
+						CommandIndex: index,
 					}
 					args := AppendEntriesArgs{
 						Term:         term,
@@ -535,17 +528,23 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
+	go rf.ApplyCommitedEntry()
 
 	return rf
 }
 
-// func (rf *Raft) ApplyCommitedEntry(entry LogEntry){
-// 	applyMessage := raftapi.ApplyMsg{
-// 		CommandValid : true,
-// 		Command : entry.Command,
-// 		//TODO:Add command index to logEntry
-// 	}
-// }
+func (rf *Raft) ApplyCommitedEntry() {
+	for i := rf.lastApplied; i <= rf.commitIndex; i++ {
+		rf.lastApplied += 1
+		entry := rf.log[i]
+		applyMessage := raftapi.ApplyMsg{
+			CommandValid: true,
+			Command:      entry.Command,
+			CommandIndex: entry.CommandIndex,
+		}
+		rf.applyCh <- applyMessage
+	}
+}
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	reply.Term = rf.currentTerm
