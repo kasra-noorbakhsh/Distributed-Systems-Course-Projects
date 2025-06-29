@@ -22,8 +22,8 @@ import (
 )
 
 type LogEntry struct {
-	term    int
-	command interface{}
+	Term    int
+	Command interface{}
 }
 
 type State int
@@ -246,7 +246,7 @@ func (rf *Raft) lastLogTerm() int {
 	if rf.commitIndex == -1 {
 		return -1
 	}
-	return rf.log[rf.commitIndex].term
+	return rf.log[rf.commitIndex].Term
 }
 
 func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
@@ -332,7 +332,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := len(rf.log)
 	term := rf.getCurrentTerm()
 	prevLogIndex := index - 1
-	prevLogTerm := rf.log[prevLogIndex].term
+	prevLogTerm := rf.log[prevLogIndex].Term
 	isLeader := rf.getIsLeader()
 	// Your code here (3B).
 	if isLeader {
@@ -342,8 +342,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			}else{
 				go func (server int)  {
 					log := LogEntry{
-						term: term,
-						command: command,
+						Term: term,
+						Command: command,
 					}
 					args := AppendEntriesArgs{
 						Term: term,
@@ -534,7 +534,7 @@ type AppendEntriesArgs struct {
 
 type AppendEntriesReply struct {
 	Term    int
-	success bool
+	Success bool
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
