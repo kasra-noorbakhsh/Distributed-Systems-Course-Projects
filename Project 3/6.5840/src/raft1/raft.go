@@ -50,11 +50,12 @@ type Raft struct {
 	votedFor    int
 	log         []LogEntry
 
-	commitIndex int
-	lastApplied int
-	timeout     *time.Timer
-	state       State
-	applyCh     chan raftapi.ApplyMsg
+	commitIndex  int
+	lastApplied  int
+	timeout      *time.Timer
+	state        State
+	currentIndex int
+	applyCh      chan raftapi.ApplyMsg
 }
 
 func (rf *Raft) setState(state_ State) {
@@ -331,8 +332,8 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // term. the third return value is true if this server believes it is
 // the leader.
 
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := len(rf.log)
+func (rf *Raft) Start(command interface{}) (int, int, bool) {	
+	index := rf.currentIndex + 1
 	term := rf.getCurrentTerm()
 	prevLogIndex := index - 1
 	prevLogTerm := rf.log[prevLogIndex].Term
@@ -364,7 +365,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		for i := range rf.peers {
 			go func(server int) {
 				for !isReplicated[server] {
-					log := LogEntry{
+					log_ := LogEntry{
 						Term:         term,
 						Command:      command,
 						CommandIndex: index,
@@ -374,7 +375,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 						LeaderId:     rf.me,
 						PrevLogIndex: prevLogIndex,
 						PrevLogTerm:  prevLogTerm,
-						Entries:      []LogEntry{log},
+						Entries:      []LogEntry{log_},
 						LeaderCommit: rf.commitIndex,
 					}
 					reply := AppendEntriesReply{}
@@ -520,6 +521,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.votedFor = -1
 	rf.commitIndex = -1
 	rf.lastApplied = -1
+	rf.currentIndex = 0
 	rf.log = make([]LogEntry, 0)
 	rf.startTimer()
 
