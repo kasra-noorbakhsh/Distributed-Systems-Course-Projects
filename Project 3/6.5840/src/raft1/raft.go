@@ -53,6 +53,7 @@ type Raft struct {
 	lastApplied int
 	timeout     *time.Timer
 	state       State
+	applyCh     chan raftapi.ApplyMsg
 }
 
 func (rf *Raft) setState(state_ State) {
@@ -336,21 +337,21 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := rf.getIsLeader()
 	// Your code here (3B).
 	if isLeader {
-		for i := range(rf.peers){
-			if i == rf.me{
+		for i := range rf.peers {
+			if i == rf.me {
 				continue
-			}else{
-				go func (server int)  {
+			} else {
+				go func(server int) {
 					log := LogEntry{
-						Term: term,
+						Term:    term,
 						Command: command,
 					}
 					args := AppendEntriesArgs{
-						Term: term,
-						LeaderId: rf.me,
+						Term:         term,
+						LeaderId:     rf.me,
 						PrevLogIndex: prevLogIndex,
-						PrevLogTerm: prevLogTerm,
-						Entries: []LogEntry{log},
+						PrevLogTerm:  prevLogTerm,
+						Entries:      []LogEntry{log},
 						LeaderCommit: rf.commitIndex,
 					}
 					reply := AppendEntriesReply{}
@@ -359,7 +360,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			}
 		}
 	}
-
 
 	return index, term, isLeader
 }
@@ -490,6 +490,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (3A, 3B, 3C).
+	rf.applyCh = applyCh
 	rf.currentTerm = 0
 	rf.votedFor = -1
 	rf.commitIndex = -1
@@ -505,6 +506,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	return rf
 }
+
+// func (rf *Raft) ApplyCommitedEntry(entry LogEntry){
+// 	applyMessage := raftapi.ApplyMsg{
+// 		CommandValid : true,
+// 		Command : entry.Command,
+// 		//TODO:Add command index to logEntry
+// 	}
+// }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	// fmt.Println(rf.me, "received heartbeat from", args.LeaderId, "term:", args.Term, "current term", rf.currentTerm)
