@@ -355,18 +355,21 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				isReplicated[i] = false
 			}
 		}
-
+		numberOfReplicated := 1
 		replies := make(chan AppendEntriesReply, len(rf.peers)-1)
 		go func() {
-				for ContainsUnreplicated(isReplicated) {
+				for numberOfReplicated != len(rf.peers) {
 					reply := <-replies
 					if reply.Success {
 						isReplicated[reply.Id] = true
+						numberOfReplicated += 1
+						if numberOfReplicated >= rf.getMajority(){
+							rf.commitIndex = index
+						}
 					}
 				}
 			}()
 		for i := range rf.peers {
-			
 			go func(server int) {
 				for !isReplicated[server] {
 					log := LogEntry{
