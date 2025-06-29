@@ -337,8 +337,18 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := rf.getIsLeader()
 	// Your code here (3B).
 	if isLeader {
-		for i := range rf.peers {
+		isReplicated := make([]bool, len(rf.peers))
+		for i := range isReplicated {
 			if i == rf.me {
+				isReplicated[i] = true
+			} else {
+				isReplicated[i] = false
+			}
+		}
+
+		replies := make(chan AppendEntriesReply, len(rf.peers)-1)
+		for i := range rf.peers {
+			if isReplicated[i] {
 				continue
 			} else {
 				go func(server int) {
@@ -356,8 +366,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 					}
 					reply := AppendEntriesReply{}
 					rf.sendAppendEntries(server, &args, &reply)
+					replies <- reply
 				}(i)
 			}
+
 		}
 	}
 
