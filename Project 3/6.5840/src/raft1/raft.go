@@ -534,14 +534,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) ApplyCommitedEntry() {
-	for i := rf.lastApplied; i <= rf.commitIndex; i++ {
-		rf.lastApplied += 1
+	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 		entry := rf.log[i]
 		applyMessage := raftapi.ApplyMsg{
 			CommandValid: true,
 			Command:      entry.Command,
 			CommandIndex: entry.CommandIndex,
 		}
+		rf.lastApplied += 1
 		rf.applyCh <- applyMessage
 	}
 }
