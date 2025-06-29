@@ -516,20 +516,53 @@ func Make(peers []*labrpc.ClientEnd, me int,
 // }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	// fmt.Println(rf.me, "received heartbeat from", args.LeaderId, "term:", args.Term, "current term", rf.currentTerm)
-	reply.Term = rf.getCurrentTerm()
-	if args.Term < rf.getCurrentTerm() {
+	reply.Term = rf.currentTerm
+	reply.Success = false
+
+	if args.Term < rf.currentTerm {
 		return
 	}
-	if args.Term > rf.getCurrentTerm() {
+
+	if args.Term > rf.currentTerm {
 		rf.setCurrentTerm(args.Term)
-	}
-	if rf.getIsLeader() && args.LeaderId != rf.me {
-		// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
+		rf.clearVotedFor()
 		rf.setState(FOLLOWER)
 	}
-	rf.clearVotedFor()
+
 	rf.resetTimer()
+
+	if args.PrevLogIndex >= len(rf.log) {
+		return
+	}
+	if args.PrevLogIndex >= 0 && rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
+		return
+	}
+
+	index := args.PrevLogIndex + 1
+	for i, entry := range args.Entries {
+		if index+i < len(rf.log) {
+			if rf.log[index+i].Term != entry.Term {
+				rf.log = rf.log[:index+i]
+				rf.log = append(rf.log, args.Entries[i:]...)
+				break
+			}
+		} else {
+			rf.log = append(rf.log, args.Entries[i:]...)
+			break
+		}
+	}
+
+	if args.LeaderCommit > rf.commitIndex {
+		lastNewIndex := args.PrevLogIndex + len(args.Entries)
+		if args.LeaderCommit < lastNewIndex {
+			rf.commitIndex = args.LeaderCommit
+		} else {
+			rf.commitIndex = lastNewIndex
+		}
+	}
+
+	reply.Success = true
+	reply.Term = rf.currentTerm
 }
 
 type AppendEntriesArgs struct {
