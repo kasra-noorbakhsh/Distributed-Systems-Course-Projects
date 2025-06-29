@@ -329,6 +329,16 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // if it's ever committed. the second return value is the current
 // term. the third return value is true if this server believes it is
 // the leader.
+
+func ContainsUnreplicated(arr []bool) bool {
+	for _, v := range arr {
+		if !v {
+			return true
+		}
+	}
+	return false
+}
+
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := len(rf.log)
 	term := rf.getCurrentTerm()
@@ -347,11 +357,18 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		}
 
 		replies := make(chan AppendEntriesReply, len(rf.peers)-1)
+		go func() {
+				for ContainsUnreplicated(isReplicated) {
+					reply := <-replies
+					if reply.Success {
+						isReplicated[reply.Id] = true
+					}
+				}
+			}()
 		for i := range rf.peers {
-			if isReplicated[i] {
-				continue
-			} else {
-				go func(server int) {
+			
+			go func(server int) {
+				for !isReplicated[server] {
 					log := LogEntry{
 						Term:    term,
 						Command: command,
@@ -367,9 +384,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 					reply := AppendEntriesReply{}
 					rf.sendAppendEntries(server, &args, &reply)
 					replies <- reply
-				}(i)
-			}
-
+					time.Sleep(5 * time.Millisecond)
+				}
+			}(i)
 		}
 	}
 
@@ -529,6 +546,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	reply.Term = rf.currentTerm
+	reply.Id = rf.me
 	reply.Success = false
 
 	if args.Term < rf.currentTerm {
@@ -587,6 +605,7 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
+	Id      int
 	Term    int
 	Success bool
 }
