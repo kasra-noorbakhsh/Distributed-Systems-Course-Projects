@@ -359,7 +359,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // term. the third return value is true if this server believes it is
 // the leader.
 
-func (rf *Raft) Start(command interface{}) (int, int, bool) {	
+func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := rf.getCommitIndex() + 1
 	term := rf.getCurrentTerm()
 	prevLogIndex := index - 1
@@ -595,19 +595,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	index := args.PrevLogIndex + 1
-	for i, entry := range args.Entries {
-		if index+i < len(rf.log) {
-			if rf.getLogEntry(index+i).Term != entry.Term {
-				rf.log = rf.log[:index+i]
-				rf.log = append(rf.log, args.Entries[i:]...)
-				break
-			}
-		} else {
-			rf.log = append(rf.log, args.Entries[i:]...)
-			break
-		}
-	}
+	rf.log = rf.log[:args.PrevLogIndex+1]
+	rf.log = append(rf.log, args.Entries...)
 
 	if args.LeaderCommit > rf.getCommitIndex() {
 		lastNewIndex := args.PrevLogIndex + len(args.Entries)
