@@ -66,7 +66,7 @@ func (rf *Raft) setState(state_ State) {
 
 func (rf *Raft) getState() State {
 	rf.mu.Lock()
-	rf.mu.Unlock()
+	defer rf.mu.Unlock()
 	return rf.state
 }
 
