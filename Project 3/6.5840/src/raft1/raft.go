@@ -375,13 +375,9 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // the leader.
 
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := rf.getCommitIndex() + 1
 	term := rf.getCurrentTerm()
-	prevLogIndex := index - 1
-	prevLogTerm := rf.getLogEntry(prevLogIndex).Term
-	isLeader := rf.isLeader()
 	// Your code here (3B).
-	if !isLeader {
+	if !rf.isLeader() {
 		return -1, term, false
 	}
 
@@ -396,13 +392,13 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		for numberOfReplicated != len(rf.peers) {
 			reply := <-replies
 			if reply.Success {
-				fmt.Println(rf.me, "replicated command", command, "at index", index, "term", term, "to server", reply.Id)
+				fmt.Println(rf.me, "replicated command", command, "term", term, "to server", reply.Id)
 
 				rf.nextIndex[reply.Id] = len(rf.log)
 				numberOfReplicated += 1
-				if numberOfReplicated >= rf.getMajority() {
-					rf.commitIndex = index
-				}
+				// if numberOfReplicated >= rf.getMajority() {
+				// 	rf.commitIndex = index
+				// }
 			} else {
 				rf.nextIndex[reply.Id] -= 1
 			}
@@ -415,6 +411,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		go func(server int) {
 			for rf.nextIndex[server] < len(rf.log) {
 				prevLogIndex := rf.nextIndex[server] - 1
+				var prevLogTerm int  
 				if prevLogIndex < 0 {
 					prevLogTerm = -1
 				} else {
@@ -436,7 +433,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		}(i)
 	}
 
-	return index, term, isLeader
+	index := len(rf.getLog()) - 1
+	return index, term, true
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
