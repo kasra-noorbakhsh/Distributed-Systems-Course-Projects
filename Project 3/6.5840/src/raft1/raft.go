@@ -600,11 +600,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	if args.LeaderCommit > rf.getCommitIndex() {
 		lastNewIndex := args.PrevLogIndex + len(args.Entries)
-		if args.LeaderCommit < lastNewIndex {
-			rf.setCommitIndex(args.LeaderCommit)
-		} else {
-			rf.setCommitIndex(lastNewIndex)
-		}
+		rf.setCommitIndex(min(args.LeaderCommit, lastNewIndex))
 	}
 
 	reply.Success = true
