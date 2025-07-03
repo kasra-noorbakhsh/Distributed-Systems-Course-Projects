@@ -10,6 +10,7 @@ import (
 	//	"bytes"
 	// "fmt"
 
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -49,6 +50,9 @@ type Raft struct {
 	currentTerm int
 	votedFor    int
 	log         []LogEntry
+
+	nextIndex   []int
+	matchIndex  []int
 
 	commitIndex  int
 	lastApplied  int
@@ -553,6 +557,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = -1
 	rf.lastApplied = -1
 	rf.currentIndex = 0
+	rf.matchIndex = make([]int, len(peers))
+	rf.nextIndex = make([]int, len(peers))
 	rf.log = make([]LogEntry, 0)
 	rf.startTimer()
 
