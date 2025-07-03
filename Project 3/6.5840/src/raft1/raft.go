@@ -98,6 +98,15 @@ func (rf *Raft) getLog() []LogEntry {
 	return rf.log
 }
 
+func (rf *Raft) getLogEntry(index int) LogEntry {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if index < 0 || index >= len(rf.log) {
+		return LogEntry{}
+	}
+	return rf.log[index]
+}
+
 func (rf *Raft) getCurrentTerm() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -354,7 +363,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := rf.getCommitIndex() + 1
 	term := rf.getCurrentTerm()
 	prevLogIndex := index - 1
-	prevLogTerm := rf.log[prevLogIndex].Term
+	prevLogTerm := rf.getLogEntry(prevLogIndex).Term
 	isLeader := rf.isLeader()
 	// Your code here (3B).
 	if isLeader {
@@ -586,14 +595,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.PrevLogIndex >= len(rf.getLog()) {
 		return
 	}
-	if args.PrevLogIndex >= 0 && rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
+	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
 
 	index := args.PrevLogIndex + 1
 	for i, entry := range args.Entries {
 		if index+i < len(rf.log) {
-			if rf.log[index+i].Term != entry.Term {
+			if rf.getLogEntry(index+i).Term != entry.Term {
 				rf.log = rf.log[:index+i]
 				rf.log = append(rf.log, args.Entries[i:]...)
 				break
