@@ -389,7 +389,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	for i := range rf.peers {
 		go func(server int) {
 			for !isReplicated[server] {
-				log_ := LogEntry{
+				log := LogEntry{
 					Term:         term,
 					Command:      command,
 					CommandIndex: index,
@@ -399,7 +399,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 					LeaderId:     rf.me,
 					PrevLogIndex: prevLogIndex,
 					PrevLogTerm:  prevLogTerm,
-					Entries:      []LogEntry{log_},
+					Entries:      []LogEntry{log},
 					LeaderCommit: rf.commitIndex,
 				}
 				reply := AppendEntriesReply{}
