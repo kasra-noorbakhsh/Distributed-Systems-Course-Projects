@@ -601,19 +601,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.resetTimer()
 
-	if args.PrevLogIndex >= len(rf.getLog()) || args.PrevLogIndex < 0 {
+	if args.PrevLogIndex >= len(rf.getLog()) {
 		return
 	}
-	if rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
+	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
 
 	rf.log = rf.log[:args.PrevLogIndex+1]
 	rf.log = append(rf.log, args.Entries...)
+	fmt.Println(rf.me, "received AppendEntries from", args.LeaderId, "term:", args.Term, "prev log index:", args.PrevLogIndex, "prev log term:", args.PrevLogTerm, "entries:", len(args.Entries))
 
 	if args.LeaderCommit > rf.getCommitIndex() {
 		lastNewIndex := args.PrevLogIndex + len(args.Entries)
 		rf.setCommitIndex(min(args.LeaderCommit, lastNewIndex))
+		fmt.Println(rf.me, "updating commit index", "leader commit:", args.LeaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
 	}
 
 	reply.Success = true
