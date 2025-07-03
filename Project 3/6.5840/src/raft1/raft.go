@@ -86,6 +86,18 @@ func (rf *Raft) getIsLeader() bool {
 // 	}
 // }
 
+func (rf *Raft) getMe() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.me
+}
+
+func (rf *Raft) getLog() []LogEntry {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.log
+}
+
 func (rf *Raft) getCurrentTerm() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -132,6 +144,12 @@ func (rf *Raft) getCommitIndex() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	return rf.commitIndex
+}
+
+func (rf *Raft) setCommitIndex(commitIndex int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.commitIndex = commitIndex
 }
 
 func (rf *Raft) getMajority() int {
@@ -549,15 +567,15 @@ func (rf *Raft) ApplyCommitedEntry() {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	reply.Term = rf.currentTerm
-	reply.Id = rf.me
+	reply.Term = rf.getCurrentTerm()
+	reply.Id = rf.getMe()
 	reply.Success = false
 
-	if args.Term < rf.currentTerm {
+	if args.Term < rf.getCurrentTerm() {
 		return
 	}
 
-	if args.Term > rf.currentTerm {
+	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 		rf.clearVotedFor()
 		rf.setState(FOLLOWER)
@@ -565,7 +583,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.resetTimer()
 
-	if args.PrevLogIndex >= len(rf.log) {
+	if args.PrevLogIndex >= len(rf.getLog()) {
 		return
 	}
 	if args.PrevLogIndex >= 0 && rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
@@ -586,12 +604,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		}
 	}
 
-	if args.LeaderCommit > rf.commitIndex {
+	if args.LeaderCommit > rf.getCommitIndex() {
 		lastNewIndex := args.PrevLogIndex + len(args.Entries)
 		if args.LeaderCommit < lastNewIndex {
-			rf.commitIndex = args.LeaderCommit
+			rf.setCommitIndex(args.LeaderCommit)
 		} else {
-			rf.commitIndex = lastNewIndex
+			rf.setCommitIndex(lastNewIndex)
 		}
 	}
 
