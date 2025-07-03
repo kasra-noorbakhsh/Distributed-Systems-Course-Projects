@@ -588,10 +588,10 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.resetTimer()
 
-	if args.PrevLogIndex >= len(rf.getLog()) {
+	if args.PrevLogIndex >= len(rf.getLog()) || args.PrevLogIndex < 0 {
 		return
 	}
-	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
+	if rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
 
