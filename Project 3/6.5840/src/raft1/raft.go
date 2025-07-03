@@ -366,52 +366,54 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	prevLogTerm := rf.getLogEntry(prevLogIndex).Term
 	isLeader := rf.isLeader()
 	// Your code here (3B).
-	if isLeader {
-		isReplicated := make([]bool, len(rf.peers))
-		for i := range isReplicated {
-			if i == rf.me {
-				isReplicated[i] = true
-			} else {
-				isReplicated[i] = false
-			}
+	if !isLeader {
+		return index, term, false
+	}
+	
+	isReplicated := make([]bool, len(rf.peers))
+	for i := range isReplicated {
+		if i == rf.me {
+			isReplicated[i] = true
+		} else {
+			isReplicated[i] = false
 		}
-		numberOfReplicated := 1
-		replies := make(chan AppendEntriesReply, len(rf.peers)-1)
-		go func() {
-			for numberOfReplicated != len(rf.peers) {
-				reply := <-replies
-				if reply.Success {
-					isReplicated[reply.Id] = true
-					numberOfReplicated += 1
-					if numberOfReplicated >= rf.getMajority() {
-						rf.commitIndex = index
-					}
+	}
+	numberOfReplicated := 1
+	replies := make(chan AppendEntriesReply, len(rf.peers)-1)
+	go func() {
+		for numberOfReplicated != len(rf.peers) {
+			reply := <-replies
+			if reply.Success {
+				isReplicated[reply.Id] = true
+				numberOfReplicated += 1
+				if numberOfReplicated >= rf.getMajority() {
+					rf.commitIndex = index
 				}
 			}
-		}()
-		for i := range rf.peers {
-			go func(server int) {
-				for !isReplicated[server] {
-					log_ := LogEntry{
-						Term:         term,
-						Command:      command,
-						CommandIndex: index,
-					}
-					args := AppendEntriesArgs{
-						Term:         term,
-						LeaderId:     rf.me,
-						PrevLogIndex: prevLogIndex,
-						PrevLogTerm:  prevLogTerm,
-						Entries:      []LogEntry{log_},
-						LeaderCommit: rf.commitIndex,
-					}
-					reply := AppendEntriesReply{}
-					rf.sendAppendEntries(server, &args, &reply)
-					replies <- reply
-					time.Sleep(5 * time.Millisecond)
-				}
-			}(i)
 		}
+	}()
+	for i := range rf.peers {
+		go func(server int) {
+			for !isReplicated[server] {
+				log_ := LogEntry{
+					Term:         term,
+					Command:      command,
+					CommandIndex: index,
+				}
+				args := AppendEntriesArgs{
+					Term:         term,
+					LeaderId:     rf.me,
+					PrevLogIndex: prevLogIndex,
+					PrevLogTerm:  prevLogTerm,
+					Entries:      []LogEntry{log_},
+					LeaderCommit: rf.commitIndex,
+				}
+				reply := AppendEntriesReply{}
+				rf.sendAppendEntries(server, &args, &reply)
+				replies <- reply
+				time.Sleep(5 * time.Millisecond)
+			}
+		}(i)
 	}
 
 	return index, term, isLeader
