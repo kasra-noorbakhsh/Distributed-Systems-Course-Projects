@@ -396,11 +396,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				}
 				args := AppendEntriesArgs{
 					Term:         term,
-					LeaderId:     rf.me,
+					LeaderId:     rf.getMe(),
 					PrevLogIndex: prevLogIndex,
 					PrevLogTerm:  prevLogTerm,
 					Entries:      []LogEntry{log},
-					LeaderCommit: rf.commitIndex,
+					LeaderCommit: rf.getCommitIndex(),
 				}
 				reply := AppendEntriesReply{}
 				rf.sendAppendEntries(server, &args, &reply)
