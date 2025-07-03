@@ -369,15 +369,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if !isLeader {
 		return index, term, false
 	}
-	
+
 	isReplicated := make([]bool, len(rf.peers))
-	for i := range isReplicated {
-		if i == rf.me {
-			isReplicated[i] = true
-		} else {
-			isReplicated[i] = false
-		}
-	}
+	isReplicated[rf.getMe()] = true
 	numberOfReplicated := 1
 	replies := make(chan AppendEntriesReply, len(rf.peers)-1)
 	go func() {
