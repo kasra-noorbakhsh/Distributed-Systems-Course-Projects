@@ -367,17 +367,25 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := rf.isLeader()
 	// Your code here (3B).
 	if !isLeader {
-		return index, term, false
+		return -1, term, false
 	}
 
 	isReplicated := make([]bool, len(rf.peers))
 	isReplicated[rf.getMe()] = true
+	rf.log = append(rf.log, LogEntry{
+		Term:         term,
+		Command:      command,
+		CommandIndex: index,
+	})
+	rf.setCommitIndex(index)
+
 	numberOfReplicated := 1
 	replies := make(chan AppendEntriesReply, len(rf.peers)-1)
 	go func() {
 		for numberOfReplicated != len(rf.peers) {
 			reply := <-replies
 			if reply.Success {
+				fmt.Println(rf.me, "replicated command", command, "at index", index, "term", term, "to server", reply.Id)
 				isReplicated[reply.Id] = true
 				numberOfReplicated += 1
 				if numberOfReplicated >= rf.getMajority() {
@@ -585,6 +593,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.clearVotedFor()
 		rf.setState(FOLLOWER)
 	}
+	// if rf.isLeader() && args.LeaderId != rf.me {
+	// 	// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
+	// 	rf.setState(FOLLOWER)
+	// }
+	// rf.clearVotedFor()
 
 	rf.resetTimer()
 
