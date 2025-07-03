@@ -119,6 +119,12 @@ func (rf *Raft) getLogSize() int {
 	return len(rf.log)
 }
 
+func (rf *Raft) appendLogEntries(entries ...LogEntry) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.log = append(rf.log, entries...)
+}
+
 func (rf *Raft) getLogEntry(index int) LogEntry {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -387,7 +393,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		return -1, term, false
 	}
 
-	rf.log = append(rf.log, LogEntry{
+	rf.appendLogEntries(LogEntry{
 		Term:    term,
 		Command: command,
 	})
@@ -632,7 +638,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	rf.log = rf.log[:args.PrevLogIndex+1]
-	rf.log = append(rf.log, args.Entries...)
+	rf.appendLogEntries(args.Entries...)
 	fmt.Println(rf.me, "received AppendEntries from", args.LeaderId, "term:", args.Term, "prev log index:", args.PrevLogIndex, "prev log term:", args.PrevLogTerm, "entries:", len(args.Entries))
 
 	if args.LeaderCommit > rf.getCommitIndex() {
