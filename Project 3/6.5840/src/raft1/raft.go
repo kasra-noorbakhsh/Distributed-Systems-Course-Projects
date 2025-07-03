@@ -373,6 +373,35 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return ok
 }
 
+func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
+	prevLogIndex := rf.nextIndex[server] - 1
+	prevLogTerm := -1
+	if prevLogIndex >= 0 {
+		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
+	}
+
+	args := AppendEntriesArgs{
+		Term:         rf.getCurrentTerm(),
+		LeaderId:     rf.getMe(),
+		PrevLogIndex: prevLogIndex,
+		PrevLogTerm:  prevLogTerm,
+		Entries:      rf.log[rf.nextIndex[server]:],
+		LeaderCommit: rf.getCommitIndex(),
+	}
+	reply := AppendEntriesReply{}
+	rf.sendAppendEntries(server, &args, &reply)
+	replyCh <- reply
+}
+
+func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
+	reply := <-replyCh
+	if reply.Success {
+		rf.nextIndex[server] = rf.getLogSize()
+	} else {
+		rf.nextIndex[server] -= 1
+	}
+}
+
 // the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
 // server isn't the leader, returns false. otherwise start the
@@ -385,61 +414,29 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // if it's ever committed. the second return value is the current
 // term. the third return value is true if this server believes it is
 // the leader.
-
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	term := rf.getCurrentTerm()
 	// Your code here (3B).
+	term := rf.getCurrentTerm()
 	if !rf.isLeader() {
 		return -1, term, false
 	}
-
+	
 	rf.appendLogEntries(LogEntry{
 		Term:    term,
 		Command: command,
 	})
 
-	numberOfReplicated := 1
-	replies := make(chan AppendEntriesReply, len(rf.peers)-1)
-	go func() {
-		for numberOfReplicated != len(rf.peers) {
-			reply := <-replies
-			if reply.Success {
-				fmt.Println(rf.me, "replicated command", command, "term", term, "to server", reply.Id)
-
-				rf.nextIndex[reply.Id] = rf.getLogSize()
-				numberOfReplicated += 1
-				// if numberOfReplicated >= rf.getMajority() {
-				// 	rf.commitIndex = index
-				// }
-			} else {
-				rf.nextIndex[reply.Id] -= 1
-			}
-		}
-	}()
 	for i := range rf.peers {
 		if i == rf.me {
 			continue
 		}
 		go func(server int) {
 			for rf.nextIndex[server] < rf.getLogSize() {
-				prevLogIndex := rf.nextIndex[server] - 1
-				var prevLogTerm int  
-				if prevLogIndex < 0 {
-					prevLogTerm = -1
-				} else {
-					prevLogTerm = rf.getLogEntry(prevLogIndex).Term
-				}
-				args := AppendEntriesArgs{
-					Term:         term,
-					LeaderId:     rf.getMe(),
-					PrevLogIndex: prevLogIndex,
-					PrevLogTerm:  prevLogTerm,
-					Entries:      rf.log[rf.nextIndex[server]:],
-					LeaderCommit: rf.getCommitIndex(),
-				}
-				reply := AppendEntriesReply{}
-				rf.sendAppendEntries(server, &args, &reply)
-				replies <- reply
+				replyCh := make(chan AppendEntriesReply, 1)
+
+				go rf.sendAppendEntriesToFollower(server, replyCh)
+				go rf.handleAppendEntriesReply(server, replyCh)
+
 				time.Sleep(5 * time.Millisecond)
 			}
 		}(i)
