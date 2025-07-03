@@ -23,9 +23,8 @@ import (
 )
 
 type LogEntry struct {
-	Term         int
-	CommandIndex int
-	Command      interface{}
+	Term    int
+	Command interface{}
 }
 
 type State int
@@ -51,8 +50,8 @@ type Raft struct {
 	votedFor    int
 	log         []LogEntry
 
-	nextIndex   []int
-	matchIndex  []int
+	nextIndex  []int
+	matchIndex []int
 
 	commitIndex  int
 	lastApplied  int
@@ -386,12 +385,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		return -1, term, false
 	}
 
-	isReplicated := make([]bool, len(rf.peers))
-	isReplicated[rf.getMe()] = true
 	rf.log = append(rf.log, LogEntry{
-		Term:         term,
-		Command:      command,
-		CommandIndex: index,
+		Term:    term,
+		Command: command,
 	})
 
 	numberOfReplicated := 1
@@ -403,7 +399,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				fmt.Println(rf.me, "replicated command", command, "at index", index, "term", term, "to server", reply.Id)
 
 				rf.nextIndex[reply.Id] = len(rf.log)
-				isReplicated[reply.Id] = true
 				numberOfReplicated += 1
 				if numberOfReplicated >= rf.getMajority() {
 					rf.commitIndex = index
@@ -414,6 +409,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		}
 	}()
 	for i := range rf.peers {
+		if i == rf.me {
+			continue
+		}
 		go func(server int) {
 			for rf.nextIndex[server] < len(rf.log) {
 				prevLogIndex := rf.nextIndex[server] - 1
@@ -594,7 +592,6 @@ func (rf *Raft) ApplyCommitedEntry() {
 		applyMessage := raftapi.ApplyMsg{
 			CommandValid: true,
 			Command:      entry.Command,
-			CommandIndex: entry.CommandIndex,
 		}
 		rf.lastApplied += 1
 		rf.applyCh <- applyMessage
