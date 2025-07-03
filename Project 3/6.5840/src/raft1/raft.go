@@ -70,7 +70,7 @@ func (rf *Raft) getState() State {
 	return rf.state
 }
 
-func (rf *Raft) getIsLeader() bool {
+func (rf *Raft) isLeader() bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	return rf.state == LEADER
@@ -163,12 +163,12 @@ func (rf *Raft) getMajority() int {
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
 	// Your code here (3A).
-	return rf.getCurrentTerm(), rf.getIsLeader()
+	return rf.getCurrentTerm(), rf.isLeader()
 }
 
 func (rf *Raft) getTimeoutDuration() int64 {
 	var ms int64
-	if rf.getIsLeader() {
+	if rf.isLeader() {
 		ms = 100
 	} else {
 		ms = 150 + (rand.Int63() % 150)
@@ -351,11 +351,11 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 // the leader.
 
 func (rf *Raft) Start(command interface{}) (int, int, bool) {	
-	index := rf.currentIndex + 1
+	index := rf.getCommitIndex() + 1
 	term := rf.getCurrentTerm()
 	prevLogIndex := index - 1
 	prevLogTerm := rf.log[prevLogIndex].Term
-	isLeader := rf.getIsLeader()
+	isLeader := rf.isLeader()
 	// Your code here (3B).
 	if isLeader {
 		isReplicated := make([]bool, len(rf.peers))
@@ -458,7 +458,7 @@ func (rf *Raft) ticker() {
 		<-rf.timeout.C
 		rf.resetTimer()
 
-		if rf.getIsLeader() {
+		if rf.isLeader() {
 			// fmt.Println(rf.me, "is leader, sending heartbeat")
 			go rf.sendHeartbeat()
 			continue
