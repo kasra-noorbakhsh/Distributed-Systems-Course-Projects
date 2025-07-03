@@ -393,7 +393,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Command:      command,
 		CommandIndex: index,
 	})
-	rf.setCommitIndex(index)
 
 	numberOfReplicated := 1
 	replies := make(chan AppendEntriesReply, len(rf.peers)-1)
@@ -402,28 +401,33 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			reply := <-replies
 			if reply.Success {
 				fmt.Println(rf.me, "replicated command", command, "at index", index, "term", term, "to server", reply.Id)
+
+				rf.nextIndex[reply.Id] = len(rf.log)
 				isReplicated[reply.Id] = true
 				numberOfReplicated += 1
 				if numberOfReplicated >= rf.getMajority() {
 					rf.commitIndex = index
 				}
+			} else {
+				rf.nextIndex[reply.Id] -= 1
 			}
 		}
 	}()
 	for i := range rf.peers {
 		go func(server int) {
-			for !isReplicated[server] {
-				log := LogEntry{
-					Term:         term,
-					Command:      command,
-					CommandIndex: index,
+			for rf.nextIndex[server] < len(rf.log) {
+				prevLogIndex := rf.nextIndex[server] - 1
+				if prevLogIndex < 0 {
+					prevLogTerm = -1
+				} else {
+					prevLogTerm = rf.getLogEntry(prevLogIndex).Term
 				}
 				args := AppendEntriesArgs{
 					Term:         term,
 					LeaderId:     rf.getMe(),
 					PrevLogIndex: prevLogIndex,
 					PrevLogTerm:  prevLogTerm,
-					Entries:      []LogEntry{log},
+					Entries:      rf.log[rf.nextIndex[server]:],
 					LeaderCommit: rf.getCommitIndex(),
 				}
 				reply := AppendEntriesReply{}
