@@ -80,6 +80,18 @@ func (rf *Raft) isLeader() bool {
 	return rf.state == LEADER
 }
 
+func (rf *Raft) becomeLeader() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.state = LEADER
+
+	rf.matchIndex = make([]int, len(rf.peers))
+
+	for i := range rf.nextIndex {
+		rf.matchIndex[i] = len(rf.log)
+	}
+}
+
 // func (rf *Raft) setIsLeader(isLeader bool) {
 // 	rf.mu.Lock()
 // 	defer rf.mu.Unlock()
@@ -522,7 +534,7 @@ func (rf *Raft) ticker() {
 				}
 				if votes >= majority {
 					// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
-					rf.setState(LEADER)
+					rf.becomeLeader()
 					go rf.sendHeartbeat()
 					rf.resetTimer()
 					rf.clearVotedFor()
