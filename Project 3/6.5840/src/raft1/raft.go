@@ -113,6 +113,12 @@ func (rf *Raft) getLog() []LogEntry {
 	return rf.log
 }
 
+func (rf *Raft) getLogSize() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return len(rf.log)
+}
+
 func (rf *Raft) getLogEntry(index int) LogEntry {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -394,7 +400,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			if reply.Success {
 				fmt.Println(rf.me, "replicated command", command, "term", term, "to server", reply.Id)
 
-				rf.nextIndex[reply.Id] = len(rf.log)
+				rf.nextIndex[reply.Id] = rf.getLogSize()
 				numberOfReplicated += 1
 				// if numberOfReplicated >= rf.getMajority() {
 				// 	rf.commitIndex = index
@@ -409,7 +415,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			continue
 		}
 		go func(server int) {
-			for rf.nextIndex[server] < len(rf.log) {
+			for rf.nextIndex[server] < rf.getLogSize() {
 				prevLogIndex := rf.nextIndex[server] - 1
 				var prevLogTerm int  
 				if prevLogIndex < 0 {
@@ -433,7 +439,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		}(i)
 	}
 
-	index := len(rf.getLog()) - 1
+	index := rf.getLogSize() - 1
 	return index, term, true
 }
 
@@ -618,7 +624,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.resetTimer()
 
-	if args.PrevLogIndex >= len(rf.getLog()) {
+	if args.PrevLogIndex >= rf.getLogSize() {
 		return
 	}
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
