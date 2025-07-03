@@ -146,6 +146,24 @@ func (rf *Raft) setCurrentTerm(term int) {
 	rf.currentTerm = term
 }
 
+func (rf *Raft) getNextIndex(server int) int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.nextIndex[server]
+}
+
+func (rf *Raft) setNextIndex(server int, nextIndex int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.nextIndex[server] = nextIndex
+}
+
+func (rf *Raft) decrementNextIndex(server int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.nextIndex[server]--
+}
+
 func (rf *Raft) incrementTerm() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -374,7 +392,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 }
 
 func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
-	prevLogIndex := rf.nextIndex[server] - 1
+	prevLogIndex := rf.getNextIndex(server) - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
@@ -385,7 +403,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.log[rf.nextIndex[server]:],
+		Entries:      rf.log[rf.getNextIndex(server):],
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
@@ -396,9 +414,9 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
 	if reply.Success {
-		rf.nextIndex[server] = rf.getLogSize()
+		rf.setNextIndex(server, rf.getLogSize())
 	} else {
-		rf.nextIndex[server] -= 1
+		rf.decrementNextIndex(server)
 	}
 }
 
@@ -420,7 +438,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	if !rf.isLeader() {
 		return -1, term, false
 	}
-	
+
 	rf.appendLogEntries(LogEntry{
 		Term:    term,
 		Command: command,
@@ -431,7 +449,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			continue
 		}
 		go func(server int) {
-			for rf.nextIndex[server] < rf.getLogSize() {
+			for rf.getNextIndex(server) < rf.getLogSize() {
 				replyCh := make(chan AppendEntriesReply, 1)
 
 				go rf.sendAppendEntriesToFollower(server, replyCh)
