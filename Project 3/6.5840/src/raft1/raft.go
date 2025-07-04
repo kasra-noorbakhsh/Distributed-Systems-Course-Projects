@@ -230,15 +230,6 @@ func (rf *Raft) getMajority() int {
 	return majority
 }
 
-func (rf *Raft) setNextIndexToLogSize(server int) (int, int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	old := rf.nextIndex[server]
-	new := len(rf.log)
-	rf.nextIndex[server] = new
-	return old, new
-}
-
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -418,9 +409,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 }
 
 func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
-	oldNextIndex, newNextIndex := rf.setNextIndexToLogSize(server)
-
-	prevLogIndex := oldNextIndex - 1
+	prevLogIndex := rf.getNextIndex(server) - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
@@ -431,11 +420,10 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.log[oldNextIndex:newNextIndex],
+		Entries:      rf.log[rf.getNextIndex(server):],
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
-	// fmt.Println(rf.me, "sending AppendEntries to", server, "term:", rf.getCurrentTerm(), "prev log index:", prevLogIndex, "prev log term:", prevLogTerm, "entries:", args.Entries)
 	rf.sendAppendEntries(server, &args, &reply)
 	replyCh <- reply
 }
@@ -444,7 +432,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
 	if reply.Success {
-		// rf.setNextIndex(server, rf.getLogSize())
+		rf.setNextIndex(server, reply.LastIndex+1)
 		rf.setMatchIndex(server, reply.LastIndex)
 	} else {
 		if rf.getNextIndex(server) > 0 {
@@ -494,9 +482,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
 
-	// fmt.Println("Leader", rf.getMe(), "Log:", rf.getLog(), "Command", command)
-	// rf.setCommitIndex(0)
-
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
 			continue
@@ -515,7 +500,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	time.Sleep(5 * time.Millisecond)
 	rf.updateLeaderCommitIndex()
 
-	// index := rf.getLogSize()
 	index := rf.getIndex(command) + 1
 	return index, term, true
 }
