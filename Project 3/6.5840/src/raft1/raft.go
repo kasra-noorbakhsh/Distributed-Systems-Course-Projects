@@ -474,6 +474,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Command: command,
 	})
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
+	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
 	// rf.setCommitIndex(0)
 
 	for i := range rf.peers {
