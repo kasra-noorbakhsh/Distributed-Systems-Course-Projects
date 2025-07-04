@@ -637,20 +637,25 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
-	go rf.ApplyCommitedEntry()
+	go rf.applyCommitedEntry()
 
 	return rf
 }
 
-func (rf *Raft) ApplyCommitedEntry() {
-	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
-		entry := rf.log[i]
-		applyMessage := raftapi.ApplyMsg{
-			CommandValid: true,
-			Command:      entry.Command,
+func (rf *Raft) applyCommitedEntry() {
+	for {
+		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
+			entry := rf.log[i]
+			applyMessage := raftapi.ApplyMsg{
+				CommandValid: true,
+				Command:      entry.Command,
+				CommandIndex: i,
+			}
+			rf.lastApplied += 1
+			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
+			rf.applyCh <- applyMessage
 		}
-		rf.lastApplied += 1
-		rf.applyCh <- applyMessage
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
