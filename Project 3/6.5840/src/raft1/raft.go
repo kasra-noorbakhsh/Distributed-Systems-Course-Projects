@@ -8,9 +8,7 @@ package raft
 
 import (
 	//	"bytes"
-	// "fmt"
 
-	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -525,8 +523,8 @@ func (rf *Raft) sendHeartbeat() {
 		}
 		go func(server int) {
 			args := AppendEntriesArgs{
-				Term:     rf.getCurrentTerm(),
-				LeaderId: rf.me,
+				Term:         rf.getCurrentTerm(),
+				LeaderId:     rf.me,
 				LeaderCommit: rf.getCommitIndex(),
 			}
 			reply := AppendEntriesReply{}
@@ -654,7 +652,7 @@ func (rf *Raft) applyCommitedEntry() {
 			applyMessage := raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      entry.Command,
-				CommandIndex: i + 1, 
+				CommandIndex: i + 1,
 			}
 			rf.lastApplied += 1
 			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
@@ -712,7 +710,7 @@ func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
 	if leaderCommit > rf.getCommitIndex() {
 		lastNewIndex := rf.getLogSize() - 1
 		rf.setCommitIndex(min(leaderCommit, lastNewIndex))
-		fmt.Println(rf.me, "updating commit index", "leader commit:", leaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
+		// fmt.Println(rf.me, "updating commit index", "leader commit:", leaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
 	}
 }
 
