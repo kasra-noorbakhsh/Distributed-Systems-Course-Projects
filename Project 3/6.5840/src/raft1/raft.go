@@ -492,7 +492,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	time.Sleep(5 * time.Millisecond)
 	rf.updateLeaderCommitIndex()
 
-	index := rf.getLogSize() - 1
+	index := rf.getLogSize()
 	return index, term, true
 }
 
@@ -651,7 +651,7 @@ func (rf *Raft) applyCommitedEntry() {
 			applyMessage := raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      entry.Command,
-				CommandIndex: i,
+				CommandIndex: i + 1, 
 			}
 			rf.lastApplied += 1
 			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
