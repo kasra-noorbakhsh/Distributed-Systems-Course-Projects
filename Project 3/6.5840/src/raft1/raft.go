@@ -435,6 +435,11 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
+	if reply.Term > rf.getCurrentTerm() {
+		rf.setCurrentTerm(reply.Term)
+		rf.setState(FOLLOWER)
+		rf.clearVotedFor()
+	}
 	if reply.Success {
 		rf.setNextIndex(server, reply.LastIndex+1)
 		rf.setMatchIndex(server, reply.LastIndex)
@@ -708,7 +713,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// 	// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
 	// 	rf.setState(FOLLOWER)
 	// }
-	// rf.clearVotedFor()
+	rf.clearVotedFor()
 
 	rf.resetTimer()
 
