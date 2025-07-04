@@ -433,7 +433,7 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 	}
 }
 
-func (rf *Raft) updateCommitIndex() {
+func (rf *Raft) updateLeaderCommitIndex() {
 	for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
 		count := 0
 		for _, matchIndex := range rf.getMatchIndex() {
@@ -488,7 +488,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		}(i)
 	}
 	time.Sleep(5 * time.Millisecond)
-	rf.updateCommitIndex()
+	rf.updateLeaderCommitIndex()
 
 	index := rf.getLogSize() - 1
 	return index, term, true
@@ -522,6 +522,7 @@ func (rf *Raft) sendHeartbeat() {
 			args := AppendEntriesArgs{
 				Term:     rf.getCurrentTerm(),
 				LeaderId: rf.me,
+				LeaderCommit: rf.getCommitIndex(),
 			}
 			reply := AppendEntriesReply{}
 			// fmt.Println(rf.me, "sending heartbeat to", server, "term:", rf.getCurrentTerm())
@@ -675,6 +676,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.resetTimer()
 
+	if args.isHeartbeat() {
+		rf.updateFollowerCommitIndex(args.LeaderCommit)
+		return
+	}
+
 	if args.PrevLogIndex >= rf.getLogSize() {
 		return
 	}
@@ -684,15 +690,20 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	rf.log = rf.log[:args.PrevLogIndex+1]
 	rf.appendLogEntries(args.Entries...)
-	fmt.Println(rf.me, "received AppendEntries from", args.LeaderId, "term:", args.Term, "prev log index:", args.PrevLogIndex, "prev log term:", args.PrevLogTerm, "entries:", len(args.Entries))
-
-	if args.LeaderCommit > rf.getCommitIndex() {
-		lastNewIndex := rf.getLogSize() - 1
-		rf.setCommitIndex(min(args.LeaderCommit, lastNewIndex))
-		fmt.Println(rf.me, "updating commit index", "leader commit:", args.LeaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
-	}
+	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
 	reply.Success = true
+}
+
+func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
+	if rf.isLeader() {
+		return
+	}
+	if leaderCommit > rf.getCommitIndex() {
+		lastNewIndex := rf.getLogSize() - 1
+		rf.setCommitIndex(min(leaderCommit, lastNewIndex))
+		fmt.Println(rf.me, "updating commit index", "leader commit:", leaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
+	}
 }
 
 type AppendEntriesArgs struct {
@@ -713,4 +724,8 @@ type AppendEntriesReply struct {
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	return ok
+}
+
+func (arg *AppendEntriesArgs) isHeartbeat() bool {
+	return len(arg.Entries) == 0
 }
