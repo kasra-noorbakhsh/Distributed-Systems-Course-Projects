@@ -586,7 +586,7 @@ func (rf *Raft) ticker() {
 		args := RequestVoteArgs{
 			Term:         rf.getCurrentTerm(),
 			CandidateId:  rf.me,
-			LastLogIndex: rf.getCommitIndex(),
+			LastLogIndex: rf.lastLogIndex(),
 			LastLogTerm:  rf.lastLogTerm(),
 		}
 
