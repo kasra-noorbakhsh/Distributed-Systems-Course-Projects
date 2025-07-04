@@ -9,7 +9,6 @@ package raft
 import (
 	//	"bytes"
 
-	// "fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -335,17 +334,23 @@ type RequestVoteReply struct {
 func (rf *Raft) lastLogTerm() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	if rf.commitIndex == -1 {
+	if len(rf.log) == 0 {
 		return -1
 	}
-	return rf.log[rf.commitIndex].Term
+	return rf.log[len(rf.log)-1].Term
+}
+
+func (rf *Raft) lastLogIndex() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return len(rf.log) - 1
 }
 
 func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 	if rf.lastLogTerm() > args.LastLogTerm {
 		return true
 	}
-	if rf.lastLogTerm() == args.LastLogTerm && rf.getCommitIndex() > args.LastLogIndex {
+	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
 		return true
 	}
 	return false
@@ -361,7 +366,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = false
 		return
 	}
-	if args.Term > rf.getCurrentTerm() {
+	if args.Term > rf.getCurrentTerm() && !rf.isMoreUpToDate(args) {
 		rf.setCurrentTerm(args.Term)
 		rf.setState(FOLLOWER)
 		rf.setVotedFor(args.CandidateId)
