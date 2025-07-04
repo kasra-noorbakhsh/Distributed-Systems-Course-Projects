@@ -701,6 +701,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Success = false
 
 	if args.Term < rf.getCurrentTerm() {
+		// fmt.Println(rf.getMe(), "received AppendEntries from", args.LeaderId, "term:", args.Term, "current term:", rf.getCurrentTerm(), "rejected", "Entries:", args.Entries)
 		return
 	}
 
@@ -732,7 +733,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.log = rf.log[:args.PrevLogIndex+1]
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
-	// fmt.Println("Follower", rf.getMe(), "prev log index:", args.PrevLogIndex, "entries:", args.Entries, "Log:", rf.getLog())
+	// fmt.Println("Follower", rf.getMe(), "term", rf.getCurrentTerm(), "LeaderID", args.LeaderId, "LeaderTerm", args.Term, "entries:", args.Entries, "Log:", rf.getLog())
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
