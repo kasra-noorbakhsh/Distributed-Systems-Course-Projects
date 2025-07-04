@@ -413,7 +413,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return ok
 }
 
-func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
+func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan AppendEntriesReply) {
 	prevLogIndex := rf.getNextIndex(server) - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
@@ -421,7 +421,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 	}
 
 	args := AppendEntriesArgs{
-		Term:         rf.getCurrentTerm(),
+		Term:         term,
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
@@ -432,7 +432,6 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 	rf.sendAppendEntries(server, &args, &reply)
 	replyCh <- reply
 }
-
 
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
@@ -492,10 +491,10 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			continue
 		}
 		go func(server int) {
-			for rf.getNextIndex(server) < rf.getLogSize() {
+			for rf.getNextIndex(server) < rf.getLogSize() && rf.isLeader() {
 				replyCh := make(chan AppendEntriesReply, 1)
 
-				go rf.sendAppendEntriesToFollower(server, replyCh)
+				go rf.sendAppendEntriesToFollower(server, term, replyCh)
 				go rf.handleAppendEntriesReply(server, replyCh)
 
 				time.Sleep(5 * time.Millisecond)
