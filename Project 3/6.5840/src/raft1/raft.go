@@ -9,6 +9,7 @@ package raft
 import (
 	//	"bytes"
 
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -98,6 +99,12 @@ func (rf *Raft) becomeLeader() {
 // 		rf.state = FOLLOWER
 // 	}
 // }
+
+func (rf *Raft) getPeers() []*labrpc.ClientEnd {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.peers
+}
 
 func (rf *Raft) getMe() int {
 	rf.mu.Lock()
@@ -402,7 +409,13 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 }
 
 func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
-	prevLogIndex := rf.getNextIndex(server) - 1
+	rf.mu.Lock()
+	oldNextIndex := rf.nextIndex[server]
+	rf.nextIndex[server] = len(rf.log)
+	newNextIndex := rf.nextIndex[server]
+	rf.mu.Unlock()
+
+	prevLogIndex := oldNextIndex - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
@@ -413,7 +426,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.log[rf.getNextIndex(server):],
+		Entries:      rf.log[oldNextIndex:newNextIndex],
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
@@ -425,8 +438,8 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
 	if reply.Success {
-		rf.setNextIndex(server, rf.getLogSize())
-		rf.setMatchIndex(server, rf.getLogSize()-1)
+		// rf.setNextIndex(server, rf.getLogSize())
+		rf.setMatchIndex(server, reply.LastIndex)
 	} else {
 		if rf.getNextIndex(server) > 0 {
 			rf.decrementNextIndex(server)
@@ -444,6 +457,7 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		}
 		if count >= rf.getMajority() {
 			rf.setCommitIndex(i)
+			fmt.Println("updated commit index to", i, "Log:", rf.getLog())
 		}
 	}
 }
@@ -473,10 +487,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	})
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
+
+	fmt.Println("Leader", rf.getMe(), "Log:", rf.getLog(), "Command", command)
 	// rf.setCommitIndex(0)
 
-	for i := range rf.peers {
-		if i == rf.me {
+	for i := range rf.getPeers() {
+		if i == rf.getMe() {
 			continue
 		}
 		go func(server int) {
@@ -493,8 +509,20 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	time.Sleep(5 * time.Millisecond)
 	rf.updateLeaderCommitIndex()
 
-	index := rf.getLogSize()
+	// index := rf.getLogSize()
+	index := rf.getIndex(command) + 1
 	return index, term, true
+}
+
+func (rf *Raft) getIndex(command interface{}) int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	for i, entry := range rf.log {
+		if entry.Command == command {
+			return i
+		}
+	}
+	return -1
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
@@ -647,13 +675,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 func (rf *Raft) applyCommitedEntry() {
 	for {
-		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
-			entry := rf.log[i]
+		for i := rf.lastApplied + 1; i <= rf.getCommitIndex(); i++ {
+			entry := rf.getLogEntry(i)
 			applyMessage := raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      entry.Command,
 				CommandIndex: i + 1,
 			}
+			fmt.Println(rf.me, "applying log entry", i, "command:", entry.Command)
 			rf.lastApplied += 1
 			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
 			rf.applyCh <- applyMessage
@@ -699,7 +728,9 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.log = rf.log[:args.PrevLogIndex+1]
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
+	fmt.Println("Follower", rf.getMe(), "prev log index:", args.PrevLogIndex, "entries:", args.Entries, "Log:", rf.getLog())
 
+	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
 }
 
@@ -724,9 +755,10 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
-	Id      int
-	Term    int
-	Success bool
+	Id        int
+	Term      int
+	Success   bool
+	LastIndex int
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
