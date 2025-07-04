@@ -9,7 +9,7 @@ package raft
 import (
 	//	"bytes"
 
-	"fmt"
+	// "fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -230,6 +230,15 @@ func (rf *Raft) getMajority() int {
 	return majority
 }
 
+func (rf *Raft) setNextIndexToLogSize(server int) (int, int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	old := rf.nextIndex[server]
+	new := len(rf.log)
+	rf.nextIndex[server] = new
+	return old, new
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -409,11 +418,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 }
 
 func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntriesReply) {
-	rf.mu.Lock()
-	oldNextIndex := rf.nextIndex[server]
-	rf.nextIndex[server] = len(rf.log)
-	newNextIndex := rf.nextIndex[server]
-	rf.mu.Unlock()
+	oldNextIndex, newNextIndex := rf.setNextIndexToLogSize(server)
 
 	prevLogIndex := oldNextIndex - 1
 	prevLogTerm := -1
@@ -434,6 +439,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 	rf.sendAppendEntries(server, &args, &reply)
 	replyCh <- reply
 }
+
 
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
 	reply := <-replyCh
@@ -457,7 +463,7 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		}
 		if count >= rf.getMajority() {
 			rf.setCommitIndex(i)
-			fmt.Println("updated commit index to", i, "Log:", rf.getLog())
+			// fmt.Println("updated commit index to", i, "Log:", rf.getLog())
 		}
 	}
 }
@@ -488,7 +494,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
 
-	fmt.Println("Leader", rf.getMe(), "Log:", rf.getLog(), "Command", command)
+	// fmt.Println("Leader", rf.getMe(), "Log:", rf.getLog(), "Command", command)
 	// rf.setCommitIndex(0)
 
 	for i := range rf.getPeers() {
@@ -682,7 +688,7 @@ func (rf *Raft) applyCommitedEntry() {
 				Command:      entry.Command,
 				CommandIndex: i + 1,
 			}
-			fmt.Println(rf.me, "applying log entry", i, "command:", entry.Command)
+			// fmt.Println(rf.me, "applying log entry", i, "command:", entry.Command)
 			rf.lastApplied += 1
 			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
 			rf.applyCh <- applyMessage
@@ -728,7 +734,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.log = rf.log[:args.PrevLogIndex+1]
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
-	fmt.Println("Follower", rf.getMe(), "prev log index:", args.PrevLogIndex, "entries:", args.Entries, "Log:", rf.getLog())
+	// fmt.Println("Follower", rf.getMe(), "prev log index:", args.PrevLogIndex, "entries:", args.Entries, "Log:", rf.getLog())
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
