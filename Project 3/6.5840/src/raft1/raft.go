@@ -479,12 +479,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		return -1, term, false
 	}
 
-	rf.appendLogEntries(LogEntry{
-		Term:    term,
-		Command: command,
-	})
-	rf.setNextIndex(rf.getMe(), rf.getLogSize())
-	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
+	if command != nil {
+		rf.appendLogEntries(LogEntry{
+			Term:    term,
+			Command: command,
+		})
+		rf.setNextIndex(rf.getMe(), rf.getLogSize())
+		rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
+	}
+
+	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
 
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
@@ -618,6 +622,7 @@ func (rf *Raft) ticker() {
 				if votes >= majority {
 					// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
 					rf.becomeLeader()
+					rf.Start(nil)
 					go rf.sendHeartbeat()
 					rf.resetTimer()
 					rf.clearVotedFor()
