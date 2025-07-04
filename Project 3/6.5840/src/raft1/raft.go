@@ -164,6 +164,18 @@ func (rf *Raft) decrementNextIndex(server int) {
 	rf.nextIndex[server]--
 }
 
+func (rf *Raft) getMatchIndex() []int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.matchIndex
+}
+
+func (rf *Raft) setMatchIndex(server int, matchIndex int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.matchIndex[server] = matchIndex
+}
+
 func (rf *Raft) incrementTerm() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -415,8 +427,23 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 	reply := <-replyCh
 	if reply.Success {
 		rf.setNextIndex(server, rf.getLogSize())
+		rf.setMatchIndex(server, rf.getLogSize()-1)
 	} else {
 		rf.decrementNextIndex(server)
+	}
+}
+
+func (rf *Raft) updateCommitIndex() {
+	for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
+		count := 0
+		for _, matchIndex := range rf.getMatchIndex() {
+			if matchIndex >= i && rf.getLogEntry(i).Term == rf.getLogEntry(matchIndex).Term {
+				count++
+			}
+		}
+		if count >= rf.getMajority() {
+			rf.setCommitIndex(i)
+		}
 	}
 }
 
@@ -443,6 +470,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Term:    term,
 		Command: command,
 	})
+	rf.setNextIndex(rf.getMe(), rf.getLogSize())
 
 	for i := range rf.peers {
 		if i == rf.me {
@@ -459,6 +487,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			}
 		}(i)
 	}
+	time.Sleep(5 * time.Millisecond)
+	rf.updateCommitIndex()
 
 	index := rf.getLogSize() - 1
 	return index, term, true
@@ -657,13 +687,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	fmt.Println(rf.me, "received AppendEntries from", args.LeaderId, "term:", args.Term, "prev log index:", args.PrevLogIndex, "prev log term:", args.PrevLogTerm, "entries:", len(args.Entries))
 
 	if args.LeaderCommit > rf.getCommitIndex() {
-		lastNewIndex := args.PrevLogIndex + len(args.Entries)
+		lastNewIndex := rf.getLogSize() - 1
 		rf.setCommitIndex(min(args.LeaderCommit, lastNewIndex))
 		fmt.Println(rf.me, "updating commit index", "leader commit:", args.LeaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
 	}
 
 	reply.Success = true
-	reply.Term = rf.currentTerm
 }
 
 type AppendEntriesArgs struct {
