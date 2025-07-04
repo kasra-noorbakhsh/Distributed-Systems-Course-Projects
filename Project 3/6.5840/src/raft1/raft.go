@@ -419,6 +419,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, replyCh chan AppendEntri
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
+	// fmt.Println(rf.me, "sending AppendEntries to", server, "term:", rf.getCurrentTerm(), "prev log index:", prevLogIndex, "prev log term:", prevLogTerm, "entries:", args.Entries)
 	rf.sendAppendEntries(server, &args, &reply)
 	replyCh <- reply
 }
@@ -471,6 +472,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		Command: command,
 	})
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
+	// rf.setCommitIndex(0)
 
 	for i := range rf.peers {
 		if i == rf.me {
