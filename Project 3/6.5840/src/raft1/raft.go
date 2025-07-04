@@ -430,7 +430,9 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 		rf.setNextIndex(server, rf.getLogSize())
 		rf.setMatchIndex(server, rf.getLogSize()-1)
 	} else {
-		rf.decrementNextIndex(server)
+		if rf.getNextIndex(server) > 0 {
+			rf.decrementNextIndex(server)
+		}
 	}
 }
 
