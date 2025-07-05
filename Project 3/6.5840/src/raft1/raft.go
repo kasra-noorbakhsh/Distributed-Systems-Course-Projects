@@ -300,6 +300,10 @@ func (rf *Raft) resetTimer() {
 	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
 }
 
+func (rf *Raft) waitForTimeout() {
+	<-rf.timeout.C
+}
+
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
@@ -608,7 +612,7 @@ func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
 		// Check if a leader election should be started.
-		<-rf.timeout.C
+		rf.waitForTimeout()
 		rf.resetTimer()
 
 		if rf.isLeader() {
