@@ -8,7 +8,7 @@ package raft
 
 import (
 	//	"bytes"
-
+	// "fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -84,10 +84,14 @@ func (rf *Raft) becomeLeader() {
 	defer rf.mu.Unlock()
 	rf.state = LEADER
 
-	rf.matchIndex = make([]int, len(rf.peers))
-
-	for i := range rf.nextIndex {
-		rf.matchIndex[i] = len(rf.log)
+	for i := range len(rf.peers) {
+		// if len(rf.log) == 0 {
+		// 	rf.nextIndex[i] = 0
+		// } else {
+		// 	rf.nextIndex[i] = len(rf.log) - 1
+		// }
+		rf.nextIndex[i] = 0
+		rf.matchIndex[i] = 0
 	}
 }
 
@@ -447,6 +451,7 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 		rf.setMatchIndex(server, reply.LastIndex)
 	} else {
 		if rf.getNextIndex(server) > 0 {
+			// fmt.Println("Follower", server, "term:", rf.getCurrentTerm(), "rejected append entries")
 			rf.decrementNextIndex(server)
 		}
 	}
