@@ -611,16 +611,15 @@ func (rf *Raft) sendHeartbeat() {
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
-		// Check if a leader election should be started.
 		rf.waitForTimeout()
 		rf.resetTimer()
 
 		if rf.isLeader() {
-			// fmt.Println(rf.me, "is leader, sending heartbeat")
+			// fmt.Println(rf.getMe(), "is leader, sending heartbeat")
 			go rf.sendHeartbeat()
 			continue
 		}
-		// fmt.Println(rf.me, "starting election term:", rf.getCurrentTerm())
+		// fmt.Println(rf.getMe(), "starting election term:", rf.getCurrentTerm())
 		rf.incrementTerm()
 		rf.voteForSelf()
 
