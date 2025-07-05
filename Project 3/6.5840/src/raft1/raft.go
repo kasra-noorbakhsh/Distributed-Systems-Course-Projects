@@ -94,6 +94,13 @@ func (rf *Raft) becomeLeader() {
 	}
 }
 
+func (rf *Raft) becomeFollower() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.state = FOLLOWER
+	rf.votedFor = -1
+}
+
 // func (rf *Raft) setIsLeader(isLeader bool) {
 // 	rf.mu.Lock()
 // 	defer rf.mu.Unlock()
@@ -453,8 +460,7 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 	reply := <-replyCh
 	if reply.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(reply.Term)
-		rf.setState(FOLLOWER)
-		rf.clearVotedFor()
+		rf.becomeFollower()
 	}
 	if reply.Success {
 		rf.setNextIndex(server, reply.LastIndex+1)
@@ -569,8 +575,7 @@ func (rf *Raft) sendHeartbeat() {
 			if reply.Term > rf.getCurrentTerm() {
 				// fmt.Println(rf.me, "became a follower")
 				rf.setCurrentTerm(reply.Term)
-				rf.setState(FOLLOWER)
-				rf.clearVotedFor()
+				rf.becomeFollower()
 				rf.resetTimer()
 			}
 		}(i)
@@ -712,8 +717,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
-		rf.clearVotedFor()
-		rf.setState(FOLLOWER)
+		rf.becomeFollower()
 	}
 	// if rf.isLeader() && args.LeaderId != rf.me {
 	// 	// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
