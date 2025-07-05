@@ -21,6 +21,7 @@ import (
 )
 
 const SLEEP_TIME = 20 * time.Millisecond
+const SLEEP_BETWEEN_APPEND_ENTRIES = 100 * time.Millisecond
 
 type LogEntry struct {
 	Term    int
@@ -513,7 +514,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				go rf.sendAppendEntriesToFollower(server, term, replyCh)
 				go rf.handleAppendEntriesReply(server, replyCh)
 
-				time.Sleep(SLEEP_TIME)
+				time.Sleep(SLEEP_BETWEEN_APPEND_ENTRIES)
 			}
 		}(i)
 	}
