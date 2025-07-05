@@ -7,8 +7,6 @@ package raft
 // Make() creates a new raft peer that implements the raft interface.
 
 import (
-	//	"bytes"
-	// "fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -236,6 +234,17 @@ func (rf *Raft) getMajority() int {
 	return majority
 }
 
+func (rf *Raft) getIndex(command interface{}) int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	for i, entry := range rf.log {
+		if entry.Command == command {
+			return i
+		}
+	}
+	return -1
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -426,7 +435,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
 	}
-
+	
 	args := AppendEntriesArgs{
 		Term:         term,
 		LeaderId:     rf.getMe(),
@@ -502,7 +511,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
 
 	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
-
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
 			continue
@@ -523,17 +531,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	index := rf.getIndex(command) + 1
 	return index, term, true
-}
-
-func (rf *Raft) getIndex(command interface{}) int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	for i, entry := range rf.log {
-		if entry.Command == command {
-			return i
-		}
-	}
-	return -1
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
