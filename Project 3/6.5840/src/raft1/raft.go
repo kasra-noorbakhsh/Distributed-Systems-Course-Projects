@@ -407,16 +407,20 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = false
 		return
 	}
-	if args.Term > rf.getCurrentTerm() && !rf.isMoreUpToDate(args) {
+	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
-		rf.setState(FOLLOWER)
-		rf.setVotedFor(args.CandidateId)
-		reply.VoteGranted = true
+		rf.becomeFollower()
+		if !rf.isMoreUpToDate(args) {
+			rf.setVotedFor(args.CandidateId)
+			reply.VoteGranted = true
+			// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
+		}
 		return
 	}
 	if (rf.getVotedFor() == -1 || rf.getVotedFor() == args.CandidateId) && !rf.isMoreUpToDate(args) {
 		rf.setVotedFor(args.CandidateId)
 		reply.VoteGranted = true
+		// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		return
 	}
 	reply.VoteGranted = false
@@ -460,7 +464,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
 	}
-	
+
 	args := AppendEntriesArgs{
 		Term:         term,
 		LeaderId:     rf.getMe(),
