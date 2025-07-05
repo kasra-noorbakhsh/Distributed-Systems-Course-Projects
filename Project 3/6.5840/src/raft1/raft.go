@@ -658,7 +658,7 @@ func (rf *Raft) ticker() {
 					rf.Start(nil)
 					go rf.sendHeartbeat()
 					rf.resetTimer()
-					rf.clearVotedFor()
+					// rf.clearVotedFor()
 					return
 				}
 			}
@@ -737,7 +737,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// 	// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
 	// 	rf.setState(FOLLOWER)
 	// }
-	rf.clearVotedFor()
+	// rf.clearVotedFor()
 	rf.resetTimer()
 
 	if args.isHeartbeat() {
