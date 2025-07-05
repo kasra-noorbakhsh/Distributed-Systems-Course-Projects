@@ -608,6 +608,26 @@ func (rf *Raft) sendHeartbeat() {
 	}
 }
 
+func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
+	args := RequestVoteArgs{
+		Term:         rf.getCurrentTerm(),
+		CandidateId:  rf.getMe(),
+		LastLogIndex: rf.lastLogIndex(),
+		LastLogTerm:  rf.lastLogTerm(),
+	}
+
+	for i := range rf.getPeers() {
+		if i == rf.getMe() {
+			continue
+		}
+		go func(peer int) {
+			reply := RequestVoteReply{}
+			rf.sendRequestVote(peer, &args, &reply)
+			replies <- reply
+		}(i)
+	}
+}
+
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
@@ -623,27 +643,11 @@ func (rf *Raft) ticker() {
 		rf.incrementTerm()
 		rf.voteForSelf()
 
-		args := RequestVoteArgs{
-			Term:         rf.getCurrentTerm(),
-			CandidateId:  rf.me,
-			LastLogIndex: rf.lastLogIndex(),
-			LastLogTerm:  rf.lastLogTerm(),
-		}
-
 		votes := 1
 		received := 1
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
-		for i := range rf.peers {
-			if i == rf.me {
-				continue
-			}
-			go func(peer int) {
-				reply := RequestVoteReply{}
-				rf.sendRequestVote(peer, &args, &reply)
-				replies <- reply
-			}(i)
-		}
+		rf.sendRequestVoteToPeers(replies)
 
 		go func() {
 			for received < len(rf.peers) {
@@ -672,6 +676,7 @@ func (rf *Raft) ticker() {
 		}()
 	}
 }
+
 
 // the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
