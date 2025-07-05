@@ -401,9 +401,8 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 	return false
 }
 
-// example RequestVote RPC handler.
+// RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	// fmt.Println(rf.me, "received RequestVote from", args.CandidateId, "term:", args.Term, "current term:", rf.getCurrentTerm(), "votedFor:",  rf.getVotedFor())
 	// Your code here (3A, 3B).
 	reply.Term = rf.currentTerm
 
