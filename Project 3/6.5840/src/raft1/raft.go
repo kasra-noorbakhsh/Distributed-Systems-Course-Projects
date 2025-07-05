@@ -652,7 +652,6 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 			rf.Start(nil)
 			go rf.sendHeartbeat()
 			rf.resetTimer()
-			// rf.clearVotedFor()
 			return
 		}
 	}
@@ -676,7 +675,7 @@ func (rf *Raft) ticker() {
 
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
-		rf.sendRequestVoteToPeers(replies)
+		go rf.sendRequestVoteToPeers(replies)
 		go rf.handleRequestVoteReplies(replies)
 	}
 }
