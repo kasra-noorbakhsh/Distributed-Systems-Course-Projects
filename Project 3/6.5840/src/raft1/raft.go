@@ -20,6 +20,8 @@ import (
 	tester "6.5840/tester1"
 )
 
+const SLEEP_TIME = 20 * time.Millisecond
+
 type LogEntry struct {
 	Term    int
 	Command interface{}
@@ -506,11 +508,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 				go rf.sendAppendEntriesToFollower(server, term, replyCh)
 				go rf.handleAppendEntriesReply(server, replyCh)
 
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(SLEEP_TIME)
 			}
 		}(i)
 	}
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(SLEEP_TIME)
 	rf.updateLeaderCommitIndex()
 
 	index := rf.getIndex(command) + 1
@@ -691,7 +693,7 @@ func (rf *Raft) applyCommitedEntry() {
 			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
 			rf.applyCh <- applyMessage
 		}
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(SLEEP_TIME)
 	}
 }
 
