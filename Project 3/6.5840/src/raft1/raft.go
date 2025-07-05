@@ -746,11 +746,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
 	}
-	// if rf.isLeader() && args.LeaderId != rf.me {
-	// 	// fmt.Println(rf.me, "became a follower", "term:", rf.getCurrentTerm(), "leader:", args.LeaderId)
-	// 	rf.setState(FOLLOWER)
-	// }
-	// rf.clearVotedFor()
 	rf.resetTimer()
 
 	if args.isHeartbeat() {
@@ -764,7 +759,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
-
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
@@ -780,7 +774,6 @@ func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
 	if leaderCommit > rf.getCommitIndex() {
 		lastNewIndex := rf.getLogSize() - 1
 		rf.setCommitIndex(min(leaderCommit, lastNewIndex))
-		// fmt.Println(rf.me, "updating commit index", "leader commit:", leaderCommit, "last new index:", lastNewIndex, "current commit index:", rf.getCommitIndex())
 	}
 }
 
