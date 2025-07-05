@@ -628,6 +628,37 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	}
 }
 
+
+func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
+	votes := 1
+	received := 1
+
+	for received < len(rf.peers) {
+		reply := <-replies
+		received++
+		
+		if reply.Term > rf.getCurrentTerm() {
+			rf.setCurrentTerm(reply.Term)
+			rf.clearVotedFor()
+			rf.resetTimer()
+			return
+		}
+		if reply.VoteGranted {
+			votes++
+		}
+		if votes >= rf.getMajority() {
+			// fmt.Println(rf.getMe(), "became leader term:", rf.getCurrentTerm())
+			rf.becomeLeader()
+			rf.Start(nil)
+			go rf.sendHeartbeat()
+			rf.resetTimer()
+			// rf.clearVotedFor()
+			return
+		}
+	}
+	rf.clearVotedFor()
+}
+
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
@@ -643,40 +674,12 @@ func (rf *Raft) ticker() {
 		rf.incrementTerm()
 		rf.voteForSelf()
 
-		votes := 1
-		received := 1
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
 		rf.sendRequestVoteToPeers(replies)
-
-		go func() {
-			for received < len(rf.peers) {
-				reply := <-replies
-				received++
-				if reply.Term > rf.getCurrentTerm() {
-					rf.setCurrentTerm(reply.Term)
-					rf.clearVotedFor()
-					rf.resetTimer()
-					return
-				}
-				if reply.VoteGranted {
-					votes++
-				}
-				if votes >= rf.getMajority() {
-					// fmt.Println(rf.getMe(), "became leader term:", rf.getCurrentTerm())
-					rf.becomeLeader()
-					rf.Start(nil)
-					go rf.sendHeartbeat()
-					rf.resetTimer()
-					// rf.clearVotedFor()
-					return
-				}
-			}
-			rf.clearVotedFor()
-		}()
+		go rf.handleRequestVoteReplies(replies)
 	}
 }
-
 
 // the service or tester wants to create a Raft server. the ports
 // of all the Raft servers (including this one) are in peers[]. this
