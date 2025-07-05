@@ -111,6 +111,18 @@ func (rf *Raft) becomeFollower() {
 // 	}
 // }
 
+func (rf *Raft) getLastApplied() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.lastApplied
+}
+
+func (rf *Raft) incrementLastApplied() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.lastApplied++
+}
+
 func (rf *Raft) getPeers() []*labrpc.ClientEnd {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -695,16 +707,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 func (rf *Raft) applyCommitedEntry() {
 	for {
-		for i := rf.lastApplied + 1; i <= rf.getCommitIndex(); i++ {
+		for i := rf.getLastApplied() + 1; i <= rf.getCommitIndex(); i++ {
 			entry := rf.getLogEntry(i)
 			applyMessage := raftapi.ApplyMsg{
 				CommandValid: true,
 				Command:      entry.Command,
 				CommandIndex: i + 1,
 			}
-			// fmt.Println(rf.me, "applying log entry", i, "command:", entry.Command)
-			rf.lastApplied += 1
-			// fmt.Println(rf.me, "applying log entry", i, "term:", entry.Term, "command:", entry.Command)
+			rf.incrementLastApplied()
 			rf.applyCh <- applyMessage
 		}
 		time.Sleep(SLEEP_TIME)
@@ -745,7 +755,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
-	// fmt.Println("Follower", rf.getMe(), "term", rf.getCurrentTerm(), "LeaderID", args.LeaderId, "LeaderTerm", args.Term, "entries:", args.Entries, "Log:", rf.getLog())
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
