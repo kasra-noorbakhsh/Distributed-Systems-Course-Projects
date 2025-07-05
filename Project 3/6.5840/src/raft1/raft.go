@@ -632,7 +632,6 @@ func (rf *Raft) ticker() {
 
 		votes := 1
 		received := 1
-		majority := rf.getMajority()
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
 		for i := range rf.peers {
@@ -659,8 +658,8 @@ func (rf *Raft) ticker() {
 				if reply.VoteGranted {
 					votes++
 				}
-				if votes >= majority {
-					// fmt.Println(rf.me, "became leader term:", rf.getCurrentTerm())
+				if votes >= rf.getMajority() {
+					// fmt.Println(rf.getMe(), "became leader term:", rf.getCurrentTerm())
 					rf.becomeLeader()
 					rf.Start(nil)
 					go rf.sendHeartbeat()
