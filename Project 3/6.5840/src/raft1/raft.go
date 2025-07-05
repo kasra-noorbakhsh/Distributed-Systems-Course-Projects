@@ -135,6 +135,12 @@ func (rf *Raft) getLogSize() int {
 	return len(rf.log)
 }
 
+func (rf *Raft) truncateLog(index int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.log = rf.log[:index+1]
+}
+
 func (rf *Raft) appendLogEntries(entries ...LogEntry) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -483,7 +489,7 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		}
 		if count >= rf.getMajority() {
 			rf.setCommitIndex(i)
-			// fmt.Println("updated commit index to", i, "Log:", rf.getLog())
+			// fmt.Println("Leader updated commit index to", i, "Log:", rf.getLog())
 		}
 	}
 }
@@ -711,10 +717,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Success = false
 
 	if args.Term < rf.getCurrentTerm() {
-		// fmt.Println(rf.getMe(), "received AppendEntries from", args.LeaderId, "term:", args.Term, "current term:", rf.getCurrentTerm(), "rejected", "Entries:", args.Entries)
 		return
 	}
-
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
@@ -724,7 +728,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// 	rf.setState(FOLLOWER)
 	// }
 	rf.clearVotedFor()
-
 	rf.resetTimer()
 
 	if args.isHeartbeat() {
@@ -739,7 +742,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	rf.log = rf.log[:args.PrevLogIndex+1]
+	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 	// fmt.Println("Follower", rf.getMe(), "term", rf.getCurrentTerm(), "LeaderID", args.LeaderId, "LeaderTerm", args.Term, "entries:", args.Entries, "Log:", rf.getLog())
