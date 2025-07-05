@@ -588,14 +588,14 @@ func (rf *Raft) sendHeartbeat() {
 		go func(server int) {
 			args := AppendEntriesArgs{
 				Term:         rf.getCurrentTerm(),
-				LeaderId:     rf.me,
+				LeaderId:     rf.getMe(),
 				LeaderCommit: rf.getCommitIndex(),
 			}
 			reply := AppendEntriesReply{}
-			// fmt.Println(rf.me, "sending heartbeat to", server, "term:", rf.getCurrentTerm())
+			// fmt.Println(rf.getMe(), "sending heartbeat to", server, "term:", rf.getCurrentTerm())
 			rf.sendAppendEntries(server, &args, &reply)
 			if reply.Term > rf.getCurrentTerm() {
-				// fmt.Println(rf.me, "became a follower")
+				// fmt.Println(rf.getMe(), "became a follower")
 				rf.setCurrentTerm(reply.Term)
 				rf.becomeFollower()
 				rf.resetTimer()
