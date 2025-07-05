@@ -304,6 +304,31 @@ func (rf *Raft) waitForTimeout() {
 	<-rf.timeout.C
 }
 
+func (rf *Raft) lastLogTerm() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if len(rf.log) == 0 {
+		return -1
+	}
+	return rf.log[len(rf.log)-1].Term
+}
+
+func (rf *Raft) lastLogIndex() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return len(rf.log) - 1
+}
+
+func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
+	if rf.lastLogTerm() > args.LastLogTerm {
+		return true
+	}
+	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
+		return true
+	}
+	return false
+}
+
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
@@ -374,31 +399,6 @@ type RequestVoteReply struct {
 	// Your data here (3A).
 	Term        int
 	VoteGranted bool
-}
-
-func (rf *Raft) lastLogTerm() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	if len(rf.log) == 0 {
-		return -1
-	}
-	return rf.log[len(rf.log)-1].Term
-}
-
-func (rf *Raft) lastLogIndex() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return len(rf.log) - 1
-}
-
-func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
-	if rf.lastLogTerm() > args.LastLogTerm {
-		return true
-	}
-	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
-		return true
-	}
-	return false
 }
 
 // RequestVote RPC handler.
@@ -627,7 +627,6 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	}
 }
 
-
 func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	votes := 1
 	received := 1
@@ -635,7 +634,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	for received < len(rf.peers) {
 		reply := <-replies
 		received++
-		
+
 		if reply.Term > rf.getCurrentTerm() {
 			rf.setCurrentTerm(reply.Term)
 			rf.clearVotedFor()
