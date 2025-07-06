@@ -720,6 +720,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
+	// Clamp commitIndex to last log index after restore
+	if rf.commitIndex > len(rf.log)-1 {
+    	rf.commitIndex = len(rf.log) - 1
+	}
+
 	// start ticker goroutine to start elections
 	go rf.ticker()
 	go rf.applyCommitedEntry()
