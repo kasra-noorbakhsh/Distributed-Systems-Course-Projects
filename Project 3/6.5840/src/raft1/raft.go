@@ -338,14 +338,16 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
 func (rf *Raft) persist() {
-	// Your code here (3C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// raftstate := w.Bytes()
-	// rf.persister.Save(raftstate, nil)
+    w := new(bytes.Buffer)
+    e := labgob.NewEncoder(w)
+
+    // Encode persistent state
+    e.Encode(rf.currentTerm)
+    e.Encode(rf.votedFor)
+    e.Encode(rf.log)
+
+    raftstate := w.Bytes()
+    rf.persister.Save(raftstate, nil) // no snapshot yet
 }
 
 // restore previously persisted state.
