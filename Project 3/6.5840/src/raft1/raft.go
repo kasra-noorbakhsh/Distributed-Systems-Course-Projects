@@ -11,8 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	//	"6.5840/labgob"
+	"bytes"
+	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raftapi"
 	tester "6.5840/tester1"
