@@ -420,6 +420,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
+		rf.persist()
 		if !rf.isMoreUpToDate(args) {
 			rf.setVotedFor(args.CandidateId)
 			reply.VoteGranted = true
@@ -429,6 +430,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	if (rf.getVotedFor() == -1 || rf.getVotedFor() == args.CandidateId) && !rf.isMoreUpToDate(args) {
 		rf.setVotedFor(args.CandidateId)
+		rf.persist()
 		reply.VoteGranted = true
 		// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		return
