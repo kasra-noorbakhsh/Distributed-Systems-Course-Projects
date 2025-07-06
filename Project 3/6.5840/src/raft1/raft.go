@@ -411,9 +411,9 @@ type RequestVoteReply struct {
 // RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
-	reply.Term = rf.currentTerm
+	reply.Term = rf.getCurrentTerm()
 
-	if args.Term < rf.currentTerm {
+	if args.Term < rf.getCurrentTerm() {
 		reply.VoteGranted = false
 		return
 	}
