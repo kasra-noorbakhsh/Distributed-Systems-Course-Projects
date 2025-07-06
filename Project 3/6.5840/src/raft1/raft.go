@@ -677,6 +677,7 @@ func (rf *Raft) ticker() {
 		// fmt.Println(rf.getMe(), "starting election term:", rf.getCurrentTerm())
 		rf.incrementTerm()
 		rf.voteForSelf()
+		rf.persist()
 
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
 
