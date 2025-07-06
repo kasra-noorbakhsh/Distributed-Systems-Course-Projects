@@ -511,18 +511,18 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 }
 
 func (rf *Raft) updateLeaderCommitIndex() {
-	for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
-		count := 0
-		for _, matchIndex := range rf.getMatchIndex() {
-			if matchIndex >= i && rf.getLogEntry(i).Term == rf.getLogEntry(matchIndex).Term {
-				count++
-			}
-		}
-		if count >= rf.getMajority() {
-			rf.setCommitIndex(i)
-			// fmt.Println("Leader updated commit index to", i, "Log:", rf.getLog())
-		}
-	}
+    currentTerm := rf.getCurrentTerm()
+    for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
+        count := 0
+        for _, matchIndex := range rf.getMatchIndex() {
+            if matchIndex >= i && rf.getLogEntry(i).Term == currentTerm {
+                count++
+            }
+        }
+        if count >= rf.getMajority() {
+            rf.setCommitIndex(i)
+        }
+    }
 }
 
 // the service using Raft (e.g. a k/v server) wants to start
