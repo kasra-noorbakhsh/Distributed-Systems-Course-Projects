@@ -546,6 +546,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Term:    term,
 			Command: command,
 		})
+		rf.persist()
 	}
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
@@ -769,6 +770,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
+	rf.persist()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
