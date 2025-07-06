@@ -338,6 +338,9 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
 func (rf *Raft) persist() {
+    rf.mu.Lock()
+    defer rf.mu.Unlock()
+
     w := new(bytes.Buffer)
     e := labgob.NewEncoder(w)
 
