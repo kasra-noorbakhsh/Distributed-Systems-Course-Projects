@@ -7,6 +7,7 @@ package raft
 // Make() creates a new raft peer that implements the raft interface.
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -733,19 +734,36 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) applyCommitedEntry() {
-	for {
-		for i := rf.getLastApplied() + 1; i <= rf.getCommitIndex(); i++ {
-			entry := rf.getLogEntry(i)
-			applyMessage := raftapi.ApplyMsg{
-				CommandValid: true,
-				Command:      entry.Command,
-				CommandIndex: i + 1,
-			}
-			rf.incrementLastApplied()
-			rf.applyCh <- applyMessage
-		}
-		time.Sleep(SLEEP_TIME)
-	}
+    for !rf.killed() {
+        rf.mu.Lock()
+
+        lastApplied := rf.lastApplied
+        commitIndex := rf.commitIndex
+
+        for i := lastApplied + 1; i <= commitIndex; i++ {
+            if i >= len(rf.log) || i < 0 {
+                rf.mu.Unlock()
+                log.Printf("[Server %v] Invalid index %v in log", rf.me, i)
+                time.Sleep(10 * time.Millisecond)
+                continue
+            }
+
+            entry := rf.log[i]
+            applyMsg := raftapi.ApplyMsg{
+                CommandValid: true,
+                Command:      entry.Command,
+                CommandIndex: i,
+            }
+
+            rf.mu.Unlock()
+            rf.applyCh <- applyMsg
+            rf.mu.Lock()
+            rf.lastApplied = i
+        }
+
+        rf.mu.Unlock()
+        time.Sleep(10 * time.Millisecond)
+    }
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
