@@ -142,6 +142,12 @@ func (rf *Raft) getLog() []LogEntry {
 	return rf.log
 }
 
+func (rf *Raft) setLog(log []LogEntry) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.log = log
+}
+
 func (rf *Raft) getLogSize() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -371,9 +377,9 @@ func (rf *Raft) readPersist(data []byte) {
        d.Decode(&log) != nil {
         panic("Failed to decode persisted Raft state")
     } else {
-        rf.currentTerm = currentTerm
-        rf.votedFor = votedFor
-        rf.log = log
+        rf.setCurrentTerm(currentTerm)
+        rf.setVotedFor(votedFor)
+        rf.setLog(log)
     }
 }
 
