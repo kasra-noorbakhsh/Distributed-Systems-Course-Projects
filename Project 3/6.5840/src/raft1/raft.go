@@ -7,11 +7,12 @@ package raft
 // Make() creates a new raft peer that implements the raft interface.
 
 import (
+	"bytes"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
-	"bytes"
+
 	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raftapi"
@@ -45,7 +46,7 @@ type Raft struct {
 	// Your data here (3A, 3B, 3C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	// These 3 below are Persistent state fields 
+	// These 3 below are Persistent state fields
 	currentTerm int
 	votedFor    int
 	log         []LogEntry
@@ -128,6 +129,12 @@ func (rf *Raft) getPeers() []*labrpc.ClientEnd {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	return rf.peers
+}
+
+func (rf *Raft) getPeer(server int) *labrpc.ClientEnd {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.peers[server]
 }
 
 func (rf *Raft) getMe() int {
@@ -344,43 +351,43 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
 func (rf *Raft) persist() {
-    rf.mu.Lock()
-    defer rf.mu.Unlock()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 
-    w := new(bytes.Buffer)
-    e := labgob.NewEncoder(w)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
 
-    // Encode persistent state
-    e.Encode(rf.currentTerm)
-    e.Encode(rf.votedFor)
-    e.Encode(rf.log)
+	// Encode persistent state
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.log)
 
-    raftstate := w.Bytes()
-    rf.persister.Save(raftstate, nil) // no snapshot yet
+	raftstate := w.Bytes()
+	rf.persister.Save(raftstate, nil) // no snapshot yet
 }
 
 // restore previously persisted state.
 func (rf *Raft) readPersist(data []byte) {
-    if data == nil || len(data) < 1 {
-        return
-    }
+	if data == nil || len(data) < 1 {
+		return
+	}
 
-    r := bytes.NewBuffer(data)
-    d := labgob.NewDecoder(r)
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
 
-    var currentTerm int
-    var votedFor int
-    var log []LogEntry
+	var currentTerm int
+	var votedFor int
+	var log []LogEntry
 
-    if d.Decode(&currentTerm) != nil ||
-       d.Decode(&votedFor) != nil ||
-       d.Decode(&log) != nil {
-        panic("Failed to decode persisted Raft state")
-    } else {
-        rf.setCurrentTerm(currentTerm)
-        rf.setVotedFor(votedFor)
-        rf.setLog(log)
-    }
+	if d.Decode(&currentTerm) != nil ||
+		d.Decode(&votedFor) != nil ||
+		d.Decode(&log) != nil {
+		panic("Failed to decode persisted Raft state")
+	} else {
+		rf.setCurrentTerm(currentTerm)
+		rf.setVotedFor(votedFor)
+		rf.setLog(log)
+	}
 }
 
 // how many bytes in Raft's persisted log?
@@ -523,18 +530,18 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 }
 
 func (rf *Raft) updateLeaderCommitIndex() {
-    currentTerm := rf.getCurrentTerm()
-    for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
-        count := 0
-        for _, matchIndex := range rf.getMatchIndex() {
-            if matchIndex >= i && rf.getLogEntry(i).Term == currentTerm {
-                count++
-            }
-        }
-        if count >= rf.getMajority() {
-            rf.setCommitIndex(i)
-        }
-    }
+	currentTerm := rf.getCurrentTerm()
+	for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
+		count := 0
+		for _, matchIndex := range rf.getMatchIndex() {
+			if matchIndex >= i && rf.getLogEntry(i).Term == currentTerm {
+				count++
+			}
+		}
+		if count >= rf.getMajority() {
+			rf.setCommitIndex(i)
+		}
+	}
 }
 
 // the service using Raft (e.g. a k/v server) wants to start
@@ -737,7 +744,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// Clamp commitIndex to last log index after restore
 	if rf.commitIndex > len(rf.log)-1 {
-    	rf.commitIndex = len(rf.log) - 1
+		rf.commitIndex = len(rf.log) - 1
 	}
 
 	// start ticker goroutine to start elections
@@ -824,7 +831,7 @@ type AppendEntriesReply struct {
 }
 
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
-	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+	ok := rf.getPeer(server).Call("Raft.AppendEntries", args, reply)
 	return ok
 }
 
