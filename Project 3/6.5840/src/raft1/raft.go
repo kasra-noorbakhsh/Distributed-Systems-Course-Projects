@@ -485,12 +485,18 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.log[rf.getNextIndex(server):],
+		Entries:      rf.getLogSuffix(rf.getNextIndex(server)),
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
 	rf.sendAppendEntries(server, &args, &reply)
 	replyCh <- reply
+}
+
+func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.log[startIndex:]
 }
 
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
