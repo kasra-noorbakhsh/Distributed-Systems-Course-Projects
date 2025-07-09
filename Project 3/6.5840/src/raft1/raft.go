@@ -778,6 +778,10 @@ func (rf *Raft) applyCommitedEntry() {
 			if rf.killed() {
 				return
 			}
+			if applyMessage.Command == nil {
+				fmt.Println("Entry:", entry, "lastApplied:", rf.getLastApplied(), "commitIndex:", rf.getCommitIndex(), "Log:", rf.getLogSize())
+				continue
+			}
 			rf.applyCh <- applyMessage
 			rf.incrementLastApplied()
 		}
