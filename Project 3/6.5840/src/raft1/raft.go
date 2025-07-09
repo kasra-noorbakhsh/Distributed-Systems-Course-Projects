@@ -498,7 +498,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.getLogSuffix(rf.getNextIndex(server)),
+		Entries:      rf.getLogSuffix(prevLogIndex+1),
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
