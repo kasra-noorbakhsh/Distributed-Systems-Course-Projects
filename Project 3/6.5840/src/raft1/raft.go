@@ -8,6 +8,7 @@ package raft
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -37,6 +38,7 @@ const (
 
 // A Go object implementing a single Raft peer.
 type Raft struct {
+	mu2       sync.Mutex          // Lock to protect shared access to this peer's state
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
 	persister *tester.Persister   // Object to hold this peer's persisted state
@@ -60,6 +62,22 @@ type Raft struct {
 	state        State
 	currentIndex int
 	applyCh      chan raftapi.ApplyMsg
+}
+
+func printList(entries []LogEntry) string {
+	var result string
+	for i, entry := range entries {
+		cmdStr := fmt.Sprintf("%v", entry.Command)
+		if len(cmdStr) > 3 {
+			cmdStr = cmdStr[:3]
+		}
+		s := fmt.Sprintf("{T:%d C:%s}", entry.Term, cmdStr)
+		if i > 0 {
+			result += " "
+		}
+		result += s
+	}
+	return result
 }
 
 func (rf *Raft) setState(state_ State) {
