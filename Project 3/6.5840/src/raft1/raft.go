@@ -763,8 +763,11 @@ func (rf *Raft) applyCommitedEntry() {
 				Command:      entry.Command,
 				CommandIndex: i + 1,
 			}
-			rf.incrementLastApplied()
+			if rf.killed() {
+				return
+			}
 			rf.applyCh <- applyMessage
+			rf.incrementLastApplied()
 		}
 		time.Sleep(SLEEP_TIME)
 	}
