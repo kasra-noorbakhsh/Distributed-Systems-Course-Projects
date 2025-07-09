@@ -436,12 +436,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
-		rf.persist()
 		if !rf.isMoreUpToDate(args) {
 			rf.setVotedFor(args.CandidateId)
 			reply.VoteGranted = true
 			// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		}
+		rf.persist()
 		return
 	}
 	if (rf.getVotedFor() == -1 || rf.getVotedFor() == args.CandidateId) && !rf.isMoreUpToDate(args) {
@@ -517,13 +517,13 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 	if reply.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(reply.Term)
 		rf.becomeFollower()
+		rf.persist()
 	}
 	if reply.Success {
 		rf.setNextIndex(server, reply.LastIndex+1)
 		rf.setMatchIndex(server, reply.LastIndex)
 	} else {
 		if rf.getNextIndex(server) > 0 {
-			// fmt.Println("Follower", server, "term:", rf.getCurrentTerm(), "rejected append entries")
 			rf.decrementNextIndex(server)
 		}
 	}
@@ -634,6 +634,7 @@ func (rf *Raft) sendHeartbeat() {
 				rf.setCurrentTerm(reply.Term)
 				rf.becomeFollower()
 				rf.resetTimer()
+				rf.persist()
 			}
 		}(i)
 	}
@@ -671,6 +672,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 			rf.setCurrentTerm(reply.Term)
 			rf.clearVotedFor()
 			rf.resetTimer()
+			rf.persist()
 			return
 		}
 		if reply.VoteGranted {
@@ -686,6 +688,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 		}
 	}
 	rf.clearVotedFor()
+	rf.persist()
 }
 
 func (rf *Raft) ticker() {
@@ -784,6 +787,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
+		rf.persist()
 	}
 	rf.resetTimer()
 
