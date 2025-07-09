@@ -502,8 +502,11 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
-	rf.sendAppendEntries(server, &args, &reply)
-	replyCh <- reply
+	ok := rf.sendAppendEntries(server, &args, &reply)
+	if ok {
+		replyCh <- reply
+	}
+	// fmt.Println("Leader", rf.getMe(), "term:", term, "sent append entries to", server, "prevLogIndex:", prevLogIndex, "prevLogTerm:", prevLogTerm, "entries:", printList(args.Entries))
 }
 
 func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
