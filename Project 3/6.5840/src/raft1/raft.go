@@ -757,6 +757,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	go rf.ticker()
 	go rf.applyCommitedEntry()
 
+	// go func() {
+	// 	for !rf.killed() {
+	// 		rf.Start(nil)
+	// 		time.Sleep(SLEEP_TIME)
+	// 	}
+	// }()
 	return rf
 }
 
