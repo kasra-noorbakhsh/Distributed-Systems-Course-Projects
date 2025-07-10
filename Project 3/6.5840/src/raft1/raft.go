@@ -836,6 +836,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.mu.Unlock()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
+	rf.persist()
+
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
 }
