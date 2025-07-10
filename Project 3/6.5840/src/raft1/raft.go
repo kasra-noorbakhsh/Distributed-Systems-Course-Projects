@@ -191,6 +191,7 @@ func (rf *Raft) getLogEntry(index int) LogEntry {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if index < 0 || index >= len(rf.log) {
+		// fmt.Println("---", index, ">", len(rf.log))
 		return LogEntry{}
 	}
 	return rf.log[index]
@@ -501,7 +502,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	return ok
 }
 
-func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan AppendEntriesReply) {
+func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan AppendEntriesReply, okCh chan bool) {
 	prevLogIndex := rf.getNextIndex(server) - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
@@ -513,7 +514,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 		LeaderId:     rf.getMe(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      rf.getLogSuffix(prevLogIndex+1),
+		Entries:      rf.getLogSuffix(prevLogIndex + 1),
 		LeaderCommit: rf.getCommitIndex(),
 	}
 	reply := AppendEntriesReply{}
