@@ -180,14 +180,10 @@ func (rf *Raft) getLogSize() int {
 }
 
 func (rf *Raft) truncateLog(index int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	rf.log = rf.log[:index+1]
 }
 
 func (rf *Raft) appendLogEntries(entries ...LogEntry) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	rf.log = append(rf.log, entries...)
 }
 
@@ -785,25 +781,25 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) applyCommitedEntry() {
-	for {
-		for i := rf.getLastApplied() + 1; i <= rf.getCommitIndex(); i++ {
-			entry := rf.getLogEntry(i)
-			applyMessage := raftapi.ApplyMsg{
-				CommandValid: true,
-				Command:      entry.Command,
-				CommandIndex: i + 1,
-			}
-			if rf.killed() {
-				return
-			}
-			if applyMessage.Command == nil {
-				fmt.Println("Entry:", entry, "lastApplied:", rf.getLastApplied(), "commitIndex:", rf.getCommitIndex(), "Log:", rf.getLogSize())
-				continue
-			}
-			rf.applyCh <- applyMessage
-			rf.incrementLastApplied()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
+		entry := rf.log[i]
+		applyMessage := raftapi.ApplyMsg{
+			CommandValid: true,
+			Command:      entry.Command,
+			CommandIndex: i + 1,
 		}
-		time.Sleep(SLEEP_TIME)
+		if rf.killed() {
+			return
+		}
+		if applyMessage.Command == nil {
+			fmt.Println("Entry:", entry, "lastApplied:", rf.lastApplied, "commitIndex:", rf.commitIndex)
+			continue
+		}
+		rf.applyCh <- applyMessage
+		rf.lastApplied++
 	}
 }
 
@@ -833,9 +829,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
+
+	rf.mu.Lock()
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
-	rf.persist()
+	rf.mu.Unlock()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
