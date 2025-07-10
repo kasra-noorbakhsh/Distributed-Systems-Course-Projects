@@ -557,6 +557,8 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		}
 		if count >= rf.getMajority() {
 			rf.setCommitIndex(i)
+			// fmt.Println("Leader", rf.getMe(), "term:", currentTerm, "updated commitIndex to", rf.getCommitIndex(), "log:", rf.getLog()[max(rf.getLogSize()-5, 0):])
+			rf.applyCommitedEntry()
 		}
 	}
 }
@@ -769,7 +771,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
-	go rf.applyCommitedEntry()
+	// go rf.applyCommitedEntry()
 
 	// go func() {
 	// 	for !rf.killed() {
@@ -849,6 +851,8 @@ func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
 	if leaderCommit > rf.getCommitIndex() {
 		lastNewIndex := rf.getLogSize() - 1
 		rf.setCommitIndex(min(leaderCommit, lastNewIndex))
+		// fmt.Println("Follower", rf.getMe(), "updated commitIndex to", rf.getCommitIndex(), "log:", rf.getLog()[max(rf.getLogSize()-5, 0):])
+		rf.applyCommitedEntry()
 	}
 }
 
