@@ -584,10 +584,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 
 	if command != nil {
+		rf.mu.Lock()
 		rf.appendLogEntries(LogEntry{
 			Term:    term,
 			Command: command,
 		})
+		rf.mu.Unlock()
 		rf.persist()
 	}
 	rf.setNextIndex(rf.getMe(), rf.getLogSize())
