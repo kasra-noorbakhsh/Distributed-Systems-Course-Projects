@@ -543,8 +543,13 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 		rf.persist()
 	}
 	if reply.Success {
+		// if reply.LastIndex+1 > rf.getNextIndex(server) {
 		rf.setNextIndex(server, reply.LastIndex+1)
+		// }
+		// if reply.LastIndex > rf.getMatchIndex()[server] {
 		rf.setMatchIndex(server, reply.LastIndex)
+		// }
+		// fmt.Println("server", rf.getMe(), "term", rf.getCurrentTerm(), "set MatchIndex[", server, "] to", reply.LastIndex)
 	} else {
 		if rf.getNextIndex(server) > 0 {
 			rf.decrementNextIndex(server)
@@ -783,10 +788,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// go rf.applyCommitedEntry()
 
 	// go func() {
-	// 	for !rf.killed() {
-	// 		rf.Start(nil)
-	// 		time.Sleep(SLEEP_TIME)
-	// 	}
+	// 	http.ListenAndServe("localhost:6060", nil)
 	// }()
 	return rf
 }
