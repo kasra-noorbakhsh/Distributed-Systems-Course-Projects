@@ -449,6 +449,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	if args.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(args.Term)
+		reply.Term = rf.getCurrentTerm()
 		rf.becomeFollower()
 		if !rf.isMoreUpToDate(args) {
 			rf.setVotedFor(args.CandidateId)
@@ -694,7 +695,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 			rf.persist()
 			return
 		}
-		if reply.VoteGranted {
+		if reply.VoteGranted && reply.Term == rf.getCurrentTerm() {
 			votes++
 		}
 		if votes >= rf.getMajority() {
