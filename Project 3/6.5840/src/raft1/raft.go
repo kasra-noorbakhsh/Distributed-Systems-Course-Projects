@@ -518,6 +518,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	}
 	reply := AppendEntriesReply{}
 	ok := rf.sendAppendEntries(server, &args, &reply)
+	okCh <- ok
 	if ok {
 		replyCh <- reply
 	}
@@ -530,7 +531,11 @@ func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
 	return rf.log[startIndex:]
 }
 
-func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply) {
+func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply, okCh chan bool) {
+	ok := <-okCh
+	if !ok {
+		return
+	}
 	reply := <-replyCh
 	if reply.Term > rf.getCurrentTerm() {
 		rf.setCurrentTerm(reply.Term)
@@ -601,11 +606,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			continue
 		}
 		go func(server int) {
-			for rf.getNextIndex(server) < rf.getLogSize() && rf.isLeader() {
+			for rf.getNextIndex(server) < rf.getLogSize() && rf.isLeader() && !rf.killed() {
 				replyCh := make(chan AppendEntriesReply, 1)
+				okCh := make(chan bool, 1)
 
-				go rf.sendAppendEntriesToFollower(server, term, replyCh)
-				go rf.handleAppendEntriesReply(server, replyCh)
+				go rf.sendAppendEntriesToFollower(server, term, replyCh, okCh)
+				go rf.handleAppendEntriesReply(server, replyCh, okCh)
 
 				time.Sleep(SLEEP_BETWEEN_APPEND_ENTRIES)
 			}
