@@ -700,7 +700,7 @@ func (rf *Raft) lastCommitTerm() int {
 	return rf.log[rf.commitIndex].Term
 }
 
-func (rf *Raft) sendHeartbeat() {
+func (rf *Raft) sendHeartbeatToPeers() {
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
 			continue
@@ -783,7 +783,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 			// fmt.Println(rf.getMe(), "became leader term:", rf.getCurrentTerm())
 			rf.becomeLeader()
 			rf.Start(nil)
-			go rf.sendHeartbeat()
+			go rf.sendHeartbeatToPeers()
 			rf.resetTimer()
 			return
 		}
@@ -800,7 +800,7 @@ func (rf *Raft) ticker() {
 
 		if rf.isLeader() {
 			// fmt.Println(rf.getMe(), "is leader, sending heartbeat")
-			go rf.sendHeartbeat()
+			go rf.sendHeartbeatToPeers()
 			continue
 		}
 		// fmt.Println(rf.getMe(), "starting election term:", rf.getCurrentTerm())
