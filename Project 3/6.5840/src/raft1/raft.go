@@ -522,26 +522,35 @@ func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
 	return entries
 }
 
+func (rf *Raft) setNextIndexU(server int, nextIndex int) {
+	rf.nextIndex[server] = nextIndex
+}
+
+func (rf *Raft) setMatchIndexU(server int, matchIndex int) {
+	rf.matchIndex[server] = matchIndex
+}
+
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply, okCh chan bool) {
 	ok := <-okCh
 	if !ok {
 		return
 	}
 	reply := <-replyCh
-	if reply.Term > rf.getCurrentTerm() {
-		rf.setCurrentTerm(reply.Term)
-		rf.becomeFollower()
-		rf.persist()
+
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if reply.Term > rf.getCurrentTermU() {
+		rf.setCurrentTermU(reply.Term)
+		rf.becomeFollowerU()
+		rf.persistU()
 	}
 	if reply.Success {
-		rf.setNextIndex(server, reply.LastIndex+1)
-		rf.setMatchIndex(server, reply.LastIndex)
+		rf.setNextIndexU(server, reply.LastIndex+1)
+		rf.setMatchIndexU(server, reply.LastIndex)
 	} else {
-		rf.mu.Lock()
 		if rf.nextIndex[server] > 0 {
 			rf.decrementNextIndex(server)
 		}
-		rf.mu.Unlock()
 	}
 }
 
