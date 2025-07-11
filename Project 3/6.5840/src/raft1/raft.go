@@ -100,6 +100,142 @@ func (rf *Raft) getIndex(command interface{}) int {
 	return -1
 }
 
+func (rf *Raft) getCurrentTerm() int {
+	return rf.currentTerm
+}
+
+func (rf *Raft) getMe() int {
+	return rf.me
+}
+
+func (rf *Raft) setCurrentTerm(term int) {
+	rf.currentTerm = term
+}
+
+func (rf *Raft) becomeFollower() {
+	rf.state = FOLLOWER
+	rf.votedFor = -1
+}
+
+func (rf *Raft) getLogEntry(index int) LogEntry {
+	if index < 0 || index >= len(rf.log) {
+		return LogEntry{}
+	}
+	return rf.log[index]
+}
+
+func (rf *Raft) getLogSize() int {
+	return len(rf.log)
+}
+
+func (rf *Raft) resetTimer() {
+	ms := rf.getTimeoutDuration()
+	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
+}
+
+func (rf *Raft) getTimeoutDuration() int64 {
+	var ms int64
+	if rf.isLeader() {
+		ms = 100
+	} else {
+		ms = 150 + (rand.Int63() % 150)
+	}
+	return ms
+}
+
+func (rf *Raft) isLeader() bool {
+	return rf.state == LEADER
+}
+
+func (rf *Raft) setVotedFor(votedFor int) {
+	rf.votedFor = votedFor
+}
+
+func (rf *Raft) getVotedFor() int {
+	return rf.votedFor
+}
+
+func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
+	if rf.lastLogTerm() > args.LastLogTerm {
+		return true
+	}
+	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
+		return true
+	}
+	return false
+}
+
+func (rf *Raft) lastLogTerm() int {
+	if len(rf.log) == 0 {
+		return -1
+	}
+	return rf.log[len(rf.log)-1].Term
+}
+
+func (rf *Raft) lastLogIndex() int {
+	return len(rf.log) - 1
+}
+
+func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
+	entries := make([]LogEntry, len(rf.log[startIndex:]))
+	copy(entries, rf.log[startIndex:])
+	return entries
+}
+
+func (rf *Raft) setNextIndex(server int, nextIndex int) {
+	rf.nextIndex[server] = nextIndex
+}
+
+func (rf *Raft) setMatchIndex(server int, matchIndex int) {
+	rf.matchIndex[server] = matchIndex
+}
+
+func (rf *Raft) getNextIndex(server int) int {
+	return rf.nextIndex[server]
+}
+
+func (rf *Raft) lastCommitTerm() int {
+	if rf.commitIndex < 0 || rf.commitIndex >= len(rf.log) {
+		return -1
+	}
+	return rf.log[rf.commitIndex].Term
+}
+
+func (rf *Raft) incrementTerm() {
+	rf.currentTerm++
+}
+
+func (rf *Raft) voteForSelf() {
+	rf.votedFor = rf.me
+}
+
+func (rf *Raft) clearVotedFor() {
+	rf.votedFor = -1
+}
+
+func (rf *Raft) becomeLeader() {
+	rf.state = LEADER
+
+	for i := range len(rf.peers) {
+		// if len(rf.log) == 0 {
+		// 	rf.nextIndex[i] = 0
+		// } else {
+		// 	rf.nextIndex[i] = len(rf.log) - 1
+		// }
+		rf.nextIndex[i] = 0
+		rf.matchIndex[i] = -1
+	}
+}
+
+func (rf *Raft) getMajority() int {
+	majority := len(rf.peers)/2 + 1
+	return majority
+}
+
+func (rf *Raft) setLog(log []LogEntry) {
+	rf.log = log
+}
+
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
@@ -142,10 +278,6 @@ func (rf *Raft) persist() {
 
 	raftstate := w.Bytes()
 	rf.persister.Save(raftstate, nil) // no snapshot yet
-}
-
-func (rf *Raft) setLog(log []LogEntry) {
-	rf.log = log
 }
 
 // restore previously persisted state.
@@ -207,35 +339,6 @@ type RequestVoteReply struct {
 	// Your data here (3A).
 	Term        int
 	VoteGranted bool
-}
-
-func (rf *Raft) setVotedFor(votedFor int) {
-	rf.votedFor = votedFor
-}
-
-func (rf *Raft) getVotedFor() int {
-	return rf.votedFor
-}
-
-func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
-	if rf.lastLogTerm() > args.LastLogTerm {
-		return true
-	}
-	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
-		return true
-	}
-	return false
-}
-
-func (rf *Raft) lastLogTerm() int {
-	if len(rf.log) == 0 {
-		return -1
-	}
-	return rf.log[len(rf.log)-1].Term
-}
-
-func (rf *Raft) lastLogIndex() int {
-	return len(rf.log) - 1
 }
 
 // RequestVote RPC handler.
@@ -329,20 +432,6 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	}
 }
 
-func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
-	entries := make([]LogEntry, len(rf.log[startIndex:]))
-	copy(entries, rf.log[startIndex:])
-	return entries
-}
-
-func (rf *Raft) setNextIndex(server int, nextIndex int) {
-	rf.nextIndex[server] = nextIndex
-}
-
-func (rf *Raft) setMatchIndex(server int, matchIndex int) {
-	rf.matchIndex[server] = matchIndex
-}
-
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply, okCh chan bool) {
 	ok := <-okCh
 	if !ok {
@@ -410,7 +499,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		rf.mu.Unlock()
 		return -1, term, false
 	}
-	
+
 	if command != nil {
 		rf.appendLogEntries(LogEntry{
 			Term:    term,
@@ -446,10 +535,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	return index, term, true
 }
 
-func (rf *Raft) getNextIndex(server int) int {
-	return rf.nextIndex[server]
-}
-
 func (rf *Raft) shouldSendEntryToFollower(server int) bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -473,13 +558,6 @@ func (rf *Raft) Kill() {
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
 	return z == 1
-}
-
-func (rf *Raft) lastCommitTerm() int {
-	if rf.commitIndex < 0 || rf.commitIndex >= len(rf.log) {
-		return -1
-	}
-	return rf.log[rf.commitIndex].Term
 }
 
 func (rf *Raft) sendHeartbeatToPeers() {
@@ -545,29 +623,6 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	}
 }
 
-func (rf *Raft) clearVotedFor() {
-	rf.votedFor = -1
-}
-
-func (rf *Raft) becomeLeader() {
-	rf.state = LEADER
-
-	for i := range len(rf.peers) {
-		// if len(rf.log) == 0 {
-		// 	rf.nextIndex[i] = 0
-		// } else {
-		// 	rf.nextIndex[i] = len(rf.log) - 1
-		// }
-		rf.nextIndex[i] = 0
-		rf.matchIndex[i] = -1
-	}
-}
-
-func (rf *Raft) getMajority() int {
-	majority := len(rf.peers)/2 + 1
-	return majority
-}
-
 func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	votes := 1
 	received := 1
@@ -596,7 +651,7 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 
 			go rf.Start(nil)
 			go rf.sendHeartbeatToPeers()
-			
+
 			rf.mu.Unlock()
 			return
 		}
@@ -608,14 +663,6 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	rf.persist()
 	rf.mu.Unlock()
 }
-
-func (rf *Raft) incrementTerm() {
-	rf.currentTerm++
-}
-
-func (rf *Raft) voteForSelf() {
-	rf.votedFor = rf.me
-}	
 
 func (rf *Raft) ticker() {
 	for !rf.killed() {
@@ -633,12 +680,12 @@ func (rf *Raft) ticker() {
 		rf.incrementTerm()
 		rf.voteForSelf()
 		rf.persist()
-		
+
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
-		
+
 		go rf.sendRequestVoteToPeers(replies)
 		go rf.handleRequestVoteReplies(replies)
-		
+
 		rf.mu.Unlock()
 	}
 }
@@ -685,16 +732,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// start ticker goroutine to start elections
 	go rf.ticker()
 
-	// go func() {
-	// 	http.ListenAndServe("localhost:6060", nil)
-	// }()
-
-	// go func() {
-	// 	for !rf.killed() {
-	// 		rf.Start(nil)
-	// 		time.Sleep(SLEEP_TIME)
-	// 	}
-	// }()
 	return rf
 }
 
@@ -722,54 +759,6 @@ func (rf *Raft) applyCommitedEntry() {
 	}
 }
 
-
-func (rf *Raft) getCurrentTerm() int {
-	return rf.currentTerm
-}
-
-func (rf *Raft) getMe() int {
-	return rf.me
-}
-
-func (rf *Raft) setCurrentTerm(term int) {
-	rf.currentTerm = term
-}
-
-func (rf *Raft) becomeFollower() {
-	rf.state = FOLLOWER
-	rf.votedFor = -1
-}
-
-func (rf *Raft) getLogEntry(index int) LogEntry {
-	if index < 0 || index >= len(rf.log) {
-		return LogEntry{}
-	}
-	return rf.log[index]
-}
-
-func (rf *Raft) getLogSize() int {
-	return len(rf.log)
-}
-
-func (rf *Raft) resetTimer() {
-	ms := rf.getTimeoutDuration()
-	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
-}
-
-func (rf *Raft) getTimeoutDuration() int64 {
-	var ms int64
-	if rf.isLeader() {
-		ms = 100
-	} else {
-		ms = 150 + (rand.Int63() % 150)
-	}
-	return ms
-}
-
-func (rf *Raft) isLeader() bool {
-	return rf.state == LEADER
-}
-
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -777,7 +766,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Term = rf.getCurrentTerm()
 	reply.Id = rf.getMe()
 	reply.Success = false
-	
+
 	if args.Term < rf.getCurrentTerm() {
 		return
 	}
@@ -787,26 +776,26 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.persist()
 	}
 	rf.resetTimer()
-	
+
 	if args.IsHeartbeat {
 		if args.LastCommitTerm == rf.getLogEntry(args.LeaderCommit).Term {
 			rf.updateFollowerCommitIndex(args.LeaderCommit)
 		}
 		return
 	}
-	
+
 	if args.PrevLogIndex >= rf.getLogSize() {
 		return
 	}
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
-	
+
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 	rf.persist()
-	
+
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
 }
