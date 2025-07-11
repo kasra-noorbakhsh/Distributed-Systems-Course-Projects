@@ -664,9 +664,11 @@ func (rf *Raft) sendHeartbeat() {
 		}
 		go func(server int) {
 			args := AppendEntriesArgs{
-				Term:         rf.getCurrentTerm(),
-				LeaderId:     rf.getMe(),
-				LeaderCommit: rf.getCommitIndex(),
+				Term:           rf.getCurrentTerm(),
+				LeaderId:       rf.getMe(),
+				LeaderCommit:   rf.getCommitIndex(),
+				LastCommitTerm: rf.getLogEntry(rf.getCommitIndex()).Term,
+				IsHeartbeat:    true,
 			}
 			reply := AppendEntriesReply{}
 			// fmt.Println(rf.getMe(), "sending heartbeat to", server, "term:", rf.getCurrentTerm())
@@ -840,8 +842,10 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 	rf.resetTimer()
 
-	if args.isHeartbeat() {
-		rf.updateFollowerCommitIndex(args.LeaderCommit)
+	if args.IsHeartbeat {
+		if args.LastCommitTerm == rf.getLogEntry(args.LeaderCommit).Term {
+			rf.updateFollowerCommitIndex(args.LeaderCommit)
+		}
 		return
 	}
 
@@ -877,12 +881,14 @@ func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
 }
 
 type AppendEntriesArgs struct {
-	Term         int
-	LeaderId     int
-	PrevLogIndex int
-	PrevLogTerm  int
-	Entries      []LogEntry
-	LeaderCommit int
+	Term           int
+	LeaderId       int
+	PrevLogIndex   int
+	PrevLogTerm    int
+	Entries        []LogEntry
+	LeaderCommit   int
+	IsHeartbeat    bool
+	LastCommitTerm int
 }
 
 type AppendEntriesReply struct {
@@ -895,8 +901,4 @@ type AppendEntriesReply struct {
 func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *AppendEntriesReply) bool {
 	ok := rf.getPeer(server).Call("Raft.AppendEntries", args, reply)
 	return ok
-}
-
-func (arg *AppendEntriesArgs) isHeartbeat() bool {
-	return len(arg.Entries) == 0
 }
