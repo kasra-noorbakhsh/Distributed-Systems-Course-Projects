@@ -529,7 +529,9 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	return rf.log[startIndex:]
+	entries := make([]LogEntry, len(rf.log[startIndex:]))
+	copy(entries, rf.log[startIndex:])
+	return entries
 }
 
 func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesReply, okCh chan bool) {
