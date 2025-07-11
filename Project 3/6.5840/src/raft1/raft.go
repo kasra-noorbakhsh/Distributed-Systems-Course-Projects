@@ -514,7 +514,6 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	if ok {
 		replyCh <- reply
 	}
-	// fmt.Println("Leader", rf.getMe(), "term:", term, "sent append entries to", server, "prevLogIndex:", prevLogIndex, "prevLogTerm:", prevLogTerm, "entries:", printList(args.Entries))
 }
 
 func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
@@ -535,13 +534,8 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 		rf.persist()
 	}
 	if reply.Success {
-		// if reply.LastIndex+1 > rf.getNextIndex(server) {
 		rf.setNextIndex(server, reply.LastIndex+1)
-		// }
-		// if reply.LastIndex > rf.getMatchIndex()[server] {
 		rf.setMatchIndex(server, reply.LastIndex)
-		// }
-		// fmt.Println("server", rf.getMe(), "term", rf.getCurrentTerm(), "set MatchIndex[", server, "] to", reply.LastIndex)
 	} else {
 		rf.mu.Lock()
 		if rf.nextIndex[server] > 0 {
@@ -569,9 +563,7 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		majority := len(rf.peers)/2 + 1
 		if count >= majority {
 			rf.commitIndex = i
-			// rf.mu.Unlock()
 			rf.applyCommitedEntry()
-			// rf.mu.Lock()
 		}
 	}
 }
