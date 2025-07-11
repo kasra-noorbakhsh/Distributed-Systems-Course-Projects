@@ -591,22 +591,23 @@ func (rf *Raft) updateLeaderCommitIndex() {
 // the leader.
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	// Your code here (3B).
-	term := rf.getCurrentTerm()
-	if !rf.isLeader() {
+	rf.mu.Lock()
+	term := rf.getCurrentTermU()
+	if !rf.isLeaderU() {
+		rf.mu.Unlock()
 		return -1, term, false
 	}
-
+	
 	if command != nil {
-		rf.mu.Lock()
 		rf.appendLogEntries(LogEntry{
 			Term:    term,
 			Command: command,
 		})
-		rf.mu.Unlock()
-		rf.persist()
+		rf.persistU()
 	}
-	rf.setNextIndex(rf.getMe(), rf.getLogSize())
-	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
+	rf.setNextIndexU(rf.getMeU(), rf.getLogSizeU())
+	rf.setMatchIndexU(rf.getMeU(), rf.getLogSizeU()-1)
+	rf.mu.Unlock()
 
 	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
 	for i := range rf.getPeers() {
@@ -614,7 +615,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			continue
 		}
 		go func(server int) {
-			for rf.getNextIndex(server) < rf.getLogSize() && rf.isLeader() && !rf.killed() {
+			for rf.shouldSendEntryToFollower(server) {
 				replyCh := make(chan AppendEntriesReply, 1)
 				okCh := make(chan bool, 1)
 
@@ -630,6 +631,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	index := rf.getIndex(command) + 1
 	return index, term, true
+}
+
+func (rf *Raft) getNextIndexU(server int) int {
+	return rf.nextIndex[server]
+}
+
+func (rf *Raft) shouldSendEntryToFollower(server int) bool {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.getNextIndexU(server) < rf.getLogSizeU() && rf.isLeaderU() && !rf.killed()
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
