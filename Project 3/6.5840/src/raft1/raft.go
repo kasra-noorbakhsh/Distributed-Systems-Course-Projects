@@ -204,10 +204,13 @@ func (rf *Raft) getTimeoutDuration() int64 {
 }
 
 func (rf *Raft) startTimer() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	if rf.timeout != nil {
 		rf.timeout.Stop()
 	}
-	ms := rf.getTimeoutDuration()
+	ms := rf.getTimeoutDurationU()
 	rf.timeout = time.NewTimer(time.Duration(ms) * time.Millisecond)
 }
 
