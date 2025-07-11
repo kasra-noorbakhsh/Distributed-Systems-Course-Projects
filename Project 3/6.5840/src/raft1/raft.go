@@ -742,12 +742,14 @@ func (rf *Raft) handleHeartbeatReply(reply AppendEntriesReply) {
 }
 
 func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
+	rf.mu.Lock()
 	args := RequestVoteArgs{
-		Term:         rf.getCurrentTerm(),
-		CandidateId:  rf.getMe(),
-		LastLogIndex: rf.lastLogIndex(),
-		LastLogTerm:  rf.lastLogTerm(),
+		Term:         rf.getCurrentTermU(),
+		CandidateId:  rf.getMeU(),
+		LastLogIndex: rf.lastLogIndexU(),
+		LastLogTerm:  rf.lastLogTermU(),
 	}
+	rf.mu.Unlock()
 
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
