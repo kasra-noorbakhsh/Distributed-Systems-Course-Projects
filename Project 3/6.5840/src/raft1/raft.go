@@ -227,11 +227,13 @@ func (rf *Raft) decrementNextIndex(server int) {
 	rf.nextIndex[server]--
 }
 
-func (rf *Raft) getMatchIndex() []int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.matchIndex
-}
+// func (rf *Raft) getMatchIndex() []int {
+// 	rf.mu.Lock()
+// 	defer rf.mu.Unlock()
+// 	clone := make([]int, len(rf.matchIndex))
+// 	copy(clone, rf.matchIndex)
+// 	return clone
+// }
 
 func (rf *Raft) setMatchIndex(server int, matchIndex int) {
 	rf.mu.Lock()
@@ -800,6 +802,13 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// go func() {
 	// 	http.ListenAndServe("localhost:6060", nil)
+	// }()
+
+	// go func() {
+	// 	for !rf.killed() {
+	// 		rf.Start(nil)
+	// 		time.Sleep(SLEEP_TIME)
+	// 	}
 	// }()
 	return rf
 }
