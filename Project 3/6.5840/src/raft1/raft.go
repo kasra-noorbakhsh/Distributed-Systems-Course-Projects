@@ -550,6 +550,10 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 func (rf *Raft) updateLeaderCommitIndex() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	if rf.state != LEADER {
+		return
+	}
+
 	currentTerm := rf.currentTerm
 	for i := rf.commitIndex + 1; i < len(rf.log); i++ {
 		count := 0
@@ -561,9 +565,9 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		majority := len(rf.peers)/2 + 1
 		if count >= majority {
 			rf.commitIndex = i
-			rf.mu.Unlock()
+			// rf.mu.Unlock()
 			rf.applyCommitedEntry()
-			rf.mu.Lock()
+			// rf.mu.Lock()
 		}
 	}
 }
@@ -809,8 +813,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) applyCommitedEntry() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// rf.mu.Lock()
+	// defer rf.mu.Unlock()
 
 	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 		entry := rf.log[i]
@@ -873,13 +877,15 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 }
 
 func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
-	if rf.isLeader() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.state == LEADER {
 		return
 	}
-	if leaderCommit > rf.getCommitIndex() {
-		lastNewIndex := rf.getLogSize() - 1
-		rf.setCommitIndex(min(leaderCommit, lastNewIndex))
-		// fmt.Println("Follower", rf.getMe(), "updated commitIndex to", rf.getCommitIndex(), "log:", rf.getLog()[max(rf.getLogSize()-5, 0):])
+	if leaderCommit > rf.commitIndex {
+		lastNewIndex := len(rf.log) - 1
+		rf.commitIndex = min(leaderCommit, lastNewIndex)
 		rf.applyCommitedEntry()
 	}
 }
