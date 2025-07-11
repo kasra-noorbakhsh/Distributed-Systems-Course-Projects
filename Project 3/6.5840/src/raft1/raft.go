@@ -70,47 +70,6 @@ func (rf *Raft) isLeader() bool {
 	return rf.state == LEADER
 }
 
-func (rf *Raft) becomeLeader() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.state = LEADER
-
-	for i := range len(rf.peers) {
-		// if len(rf.log) == 0 {
-		// 	rf.nextIndex[i] = 0
-		// } else {
-		// 	rf.nextIndex[i] = len(rf.log) - 1
-		// }
-		rf.nextIndex[i] = 0
-		rf.matchIndex[i] = -1
-	}
-}
-
-func (rf *Raft) becomeFollower() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.state = FOLLOWER
-	rf.votedFor = -1
-}
-
-func (rf *Raft) getLastApplied() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.lastApplied
-}
-
-func (rf *Raft) incrementLastApplied() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.lastApplied++
-}
-
-func (rf *Raft) getPeers() []*labrpc.ClientEnd {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.peers
-}
-
 func (rf *Raft) getPeersU() []*labrpc.ClientEnd {
 	return rf.peers
 }
@@ -130,41 +89,6 @@ func (rf *Raft) truncateLog(index int) {
 
 func (rf *Raft) appendLogEntries(entries ...LogEntry) {
 	rf.log = append(rf.log, entries...)
-}
-
-func (rf *Raft) getLogEntry(index int) LogEntry {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
-	if index < 0 || index >= len(rf.log) {
-		// fmt.Println("---", index, ">", len(rf.log))
-		return LogEntry{}
-	}
-	return rf.log[index]
-}
-
-func (rf *Raft) getCurrentTerm() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.currentTerm
-}
-
-func (rf *Raft) setCurrentTerm(term int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.currentTerm = term
-}
-
-func (rf *Raft) getNextIndex(server int) int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.nextIndex[server]
-}
-
-func (rf *Raft) setNextIndex(server int, nextIndex int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.nextIndex[server] = nextIndex
 }
 
 func (rf *Raft) decrementNextIndex(server int) {
@@ -193,16 +117,6 @@ func (rf *Raft) GetState() (int, bool) {
 	return rf.getCurrentTermU(), rf.isLeaderU()
 }
 
-func (rf *Raft) getTimeoutDuration() int64 {
-	var ms int64
-	if rf.isLeader() {
-		ms = 100
-	} else {
-		ms = 150 + (rand.Int63() % 150)
-	}
-	return ms
-}
-
 func (rf *Raft) startTimer() {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -214,38 +128,8 @@ func (rf *Raft) startTimer() {
 	rf.timeout = time.NewTimer(time.Duration(ms) * time.Millisecond)
 }
 
-func (rf *Raft) resetTimer() {
-	ms := rf.getTimeoutDuration()
-	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
-}
-
 func (rf *Raft) waitForTimeout() {
 	<-rf.timeout.C
-}
-
-func (rf *Raft) lastLogTerm() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	if len(rf.log) == 0 {
-		return -1
-	}
-	return rf.log[len(rf.log)-1].Term
-}
-
-func (rf *Raft) lastLogIndex() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return len(rf.log) - 1
-}
-
-func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
-	if rf.lastLogTerm() > args.LastLogTerm {
-		return true
-	}
-	if rf.lastLogTerm() == args.LastLogTerm && rf.lastLogIndex() > args.LastLogIndex {
-		return true
-	}
-	return false
 }
 
 // save Raft's persistent state to stable storage,
