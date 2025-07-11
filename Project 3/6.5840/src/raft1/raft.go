@@ -170,6 +170,9 @@ func (rf *Raft) getLogSize() int {
 }
 
 func (rf *Raft) truncateLog(index int) {
+	if rf.state == LEADER {
+		fmt.Println("truncate leader's log")
+	}
 	rf.log = rf.log[:index+1]
 }
 
@@ -178,6 +181,9 @@ func (rf *Raft) appendLogEntries(entries ...LogEntry) {
 }
 
 func (rf *Raft) getLogEntry(index int) LogEntry {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	if index < 0 || index >= len(rf.log) {
 		// fmt.Println("---", index, ">", len(rf.log))
 		return LogEntry{}
@@ -811,11 +817,12 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 func (rf *Raft) applyCommitedEntry() {
-	// rf.mu.Lock()
-	// defer rf.mu.Unlock()
-
 	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
-		entry := rf.log[i]
+		entry := LogEntry{}
+		if i < len(rf.log) {
+			entry = rf.log[i]
+
+		}
 		applyMessage := raftapi.ApplyMsg{
 			CommandValid: true,
 			Command:      entry.Command,
@@ -825,7 +832,7 @@ func (rf *Raft) applyCommitedEntry() {
 			return
 		}
 		if applyMessage.Command == nil {
-			fmt.Println("Entry:", entry, "lastApplied:", rf.lastApplied, "commitIndex:", rf.commitIndex)
+			fmt.Println("Entry:", entry, "lastApplied:", rf.lastApplied, "commitIndex:", rf.commitIndex, "log size:", len(rf.log))
 			continue
 		}
 		rf.applyCh <- applyMessage
@@ -834,26 +841,19 @@ func (rf *Raft) applyCommitedEntry() {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
-	reply.Term = rf.currentTerm
-	reply.Id = rf.me
+	reply.Term = rf.getCurrentTerm()
+	reply.Id = rf.getMe()
 	reply.Success = false
 
-	if args.Term < rf.currentTerm {
+	if args.Term < rf.getCurrentTerm() {
 		return
 	}
-	if args.Term > rf.currentTerm {
-		rf.currentTerm = args.Term
-		rf.mu.Unlock()
+	if args.Term > rf.getCurrentTerm() {
+		rf.setCurrentTerm(args.Term)
 		rf.becomeFollower()
 		rf.persist()
-		rf.mu.Lock()
 	}
-	rf.mu.Unlock()
 	rf.resetTimer()
-	rf.mu.Lock()
 
 	if args.IsHeartbeat {
 		if args.LastCommitTerm == rf.getLogEntry(args.LeaderCommit).Term {
@@ -862,20 +862,20 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	if args.PrevLogIndex >= len(rf.log) {
+	if args.PrevLogIndex >= rf.getLogSize() {
 		return
 	}
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
 
+	rf.mu.Lock()
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
+	rf.mu.Unlock()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
-	rf.mu.Unlock()
 	rf.persist()
-	rf.mu.Lock()
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
