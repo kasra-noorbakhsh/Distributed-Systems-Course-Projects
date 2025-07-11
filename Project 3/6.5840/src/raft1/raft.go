@@ -139,6 +139,10 @@ func (rf *Raft) getPeers() []*labrpc.ClientEnd {
 	return rf.peers
 }
 
+func (rf *Raft) getPeersU() []*labrpc.ClientEnd {
+	return rf.peers
+}
+
 func (rf *Raft) getPeer(server int) *labrpc.ClientEnd {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -650,7 +654,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Unlock()
 
 	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
-	for i := range rf.getPeers() {
+	for i := range rf.getPeersU() {
 		if i == rf.getMeU() {
 			continue
 		}
@@ -710,7 +714,7 @@ func (rf *Raft) lastCommitTerm() int {
 }
 
 func (rf *Raft) sendHeartbeatToPeers() {
-	for i := range rf.getPeers() {
+	for i := range rf.getPeersU() {
 		if i == rf.getMeU() {
 			continue
 		}
@@ -760,7 +764,7 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	}
 	rf.mu.Unlock()
 
-	for i := range rf.getPeers() {
+	for i := range rf.getPeersU() {
 		if i == rf.getMeU() {
 			continue
 		}
