@@ -291,7 +291,9 @@ func (rf *Raft) getIndex(command interface{}) int {
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
 	// Your code here (3A).
-	return rf.getCurrentTerm(), rf.isLeader()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.getCurrentTermU(), rf.isLeaderU()
 }
 
 func (rf *Raft) getTimeoutDuration() int64 {
