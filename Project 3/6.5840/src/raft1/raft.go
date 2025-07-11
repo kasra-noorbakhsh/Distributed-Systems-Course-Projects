@@ -427,30 +427,61 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
+func (rf *Raft) setVotedForU(votedFor int) {
+	rf.votedFor = votedFor
+}
+
+func (rf *Raft) getVotedForU() int {
+	return rf.votedFor
+}
+
+func (rf *Raft) isMoreUpToDateU(args *RequestVoteArgs) bool {
+	if rf.lastLogTermU() > args.LastLogTerm {
+		return true
+	}
+	if rf.lastLogTermU() == args.LastLogTerm && rf.lastLogIndexU() > args.LastLogIndex {
+		return true
+	}
+	return false
+}
+
+func (rf *Raft) lastLogTermU() int {
+	if len(rf.log) == 0 {
+		return -1
+	}
+	return rf.log[len(rf.log)-1].Term
+}
+
+func (rf *Raft) lastLogIndexU() int {
+	return len(rf.log) - 1
+}
+
 // RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
-	reply.Term = rf.getCurrentTerm()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	reply.Term = rf.getCurrentTermU()
 
-	if args.Term < rf.getCurrentTerm() {
+	if args.Term < rf.getCurrentTermU() {
 		reply.VoteGranted = false
 		return
 	}
-	if args.Term > rf.getCurrentTerm() {
-		rf.setCurrentTerm(args.Term)
-		reply.Term = rf.getCurrentTerm()
-		rf.becomeFollower()
-		if !rf.isMoreUpToDate(args) {
-			rf.setVotedFor(args.CandidateId)
+	if args.Term > rf.getCurrentTermU() {
+		rf.setCurrentTermU(args.Term)
+		reply.Term = rf.getCurrentTermU()
+		rf.becomeFollowerU()
+		if !rf.isMoreUpToDateU(args) {
+			rf.setVotedForU(args.CandidateId)
 			reply.VoteGranted = true
 			// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		}
-		rf.persist()
+		rf.persistU()
 		return
 	}
-	if (rf.getVotedFor() == -1 || rf.getVotedFor() == args.CandidateId) && !rf.isMoreUpToDate(args) {
-		rf.setVotedFor(args.CandidateId)
-		rf.persist()
+	if (rf.getVotedForU() == -1 || rf.getVotedForU() == args.CandidateId) && !rf.isMoreUpToDateU(args) {
+		rf.setVotedForU(args.CandidateId)
+		rf.persistU()
 		reply.VoteGranted = true
 		// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		return
