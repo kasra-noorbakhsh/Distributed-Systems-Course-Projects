@@ -701,32 +701,43 @@ func (rf *Raft) lastCommitTerm() int {
 }
 
 func (rf *Raft) sendHeartbeat() {
-	for i := range rf.peers {
-		if i == rf.me {
+	for i := range rf.getPeers() {
+		if i == rf.getMe() {
 			continue
 		}
 		go func(server int) {
-			rf.mu.Lock()
-			args := AppendEntriesArgs{
-				Term:           rf.currentTerm,
-				LeaderId:       rf.me,
-				LeaderCommit:   rf.commitIndex,
-				LastCommitTerm: rf.lastCommitTerm(),
-				IsHeartbeat:    true,
-			}
-			rf.mu.Unlock()
-
-			reply := AppendEntriesReply{}
-			// fmt.Println(rf.getMe(), "sending heartbeat to", server, "term:", rf.getCurrentTerm())
-			rf.sendAppendEntries(server, &args, &reply)
-			if reply.Term > rf.getCurrentTerm() {
-				// fmt.Println(rf.getMe(), "became a follower")
-				rf.setCurrentTerm(reply.Term)
-				rf.becomeFollower()
-				rf.resetTimer()
-				rf.persist()
-			}
+			reply := rf.sendHeartbeatTo(server)
+			rf.handleHeartbeatReply(reply)
 		}(i)
+	}
+}
+
+func (rf *Raft) sendHeartbeatTo(server int) AppendEntriesReply {
+	rf.mu.Lock()
+	args := AppendEntriesArgs{
+		Term:           rf.currentTerm,
+		LeaderId:       rf.me,
+		LeaderCommit:   rf.commitIndex,
+		LastCommitTerm: rf.lastCommitTerm(),
+		IsHeartbeat:    true,
+	}
+	rf.mu.Unlock()
+
+	reply := AppendEntriesReply{}
+
+	rf.sendAppendEntries(server, &args, &reply)
+	return reply
+}
+
+func (rf *Raft) handleHeartbeatReply(reply AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if reply.Term > rf.getCurrentTermU() {
+		rf.setCurrentTermU(reply.Term)
+		rf.becomeFollowerU()
+		rf.resetTimerU()
+		rf.persistU()
 	}
 }
 
