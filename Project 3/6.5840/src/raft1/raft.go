@@ -178,8 +178,6 @@ func (rf *Raft) appendLogEntries(entries ...LogEntry) {
 }
 
 func (rf *Raft) getLogEntry(index int) LogEntry {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	if index < 0 || index >= len(rf.log) {
 		// fmt.Println("---", index, ">", len(rf.log))
 		return LogEntry{}
@@ -836,19 +834,26 @@ func (rf *Raft) applyCommitedEntry() {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	reply.Term = rf.getCurrentTerm()
-	reply.Id = rf.getMe()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	reply.Term = rf.currentTerm
+	reply.Id = rf.me
 	reply.Success = false
 
-	if args.Term < rf.getCurrentTerm() {
+	if args.Term < rf.currentTerm {
 		return
 	}
-	if args.Term > rf.getCurrentTerm() {
-		rf.setCurrentTerm(args.Term)
+	if args.Term > rf.currentTerm {
+		rf.currentTerm = args.Term
+		rf.mu.Unlock()
 		rf.becomeFollower()
 		rf.persist()
+		rf.mu.Lock()
 	}
+	rf.mu.Unlock()
 	rf.resetTimer()
+	rf.mu.Lock()
 
 	if args.IsHeartbeat {
 		if args.LastCommitTerm == rf.getLogEntry(args.LeaderCommit).Term {
@@ -857,28 +862,28 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 
-	if args.PrevLogIndex >= rf.getLogSize() {
+	if args.PrevLogIndex >= len(rf.log) {
 		return
 	}
 	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
 
-	rf.mu.Lock()
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
-	rf.mu.Unlock()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
 
+	rf.mu.Unlock()
 	rf.persist()
+	rf.mu.Lock()
 
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
 }
 
 func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// rf.mu.Lock()
+	// defer rf.mu.Unlock()
 
 	if rf.state == LEADER {
 		return
