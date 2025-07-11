@@ -763,6 +763,29 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	}
 }
 
+func (rf *Raft) clearVotedForU() {
+	rf.votedFor = -1
+}
+
+func (rf *Raft) becomeLeaderU() {
+	rf.state = LEADER
+
+	for i := range len(rf.peers) {
+		// if len(rf.log) == 0 {
+		// 	rf.nextIndex[i] = 0
+		// } else {
+		// 	rf.nextIndex[i] = len(rf.log) - 1
+		// }
+		rf.nextIndex[i] = 0
+		rf.matchIndex[i] = -1
+	}
+}
+
+func (rf *Raft) getMajorityU() int {
+	majority := len(rf.peers)/2 + 1
+	return majority
+}
+
 func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	votes := 1
 	received := 1
@@ -771,27 +794,37 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 		reply := <-replies
 		received++
 
-		if reply.Term > rf.getCurrentTerm() {
-			rf.setCurrentTerm(reply.Term)
-			rf.clearVotedFor()
-			rf.resetTimer()
-			rf.persist()
+		rf.mu.Lock()
+		if reply.Term > rf.getCurrentTermU() {
+			rf.setCurrentTermU(reply.Term)
+			rf.clearVotedForU()
+			rf.resetTimerU()
+			rf.persistU()
+
+			rf.mu.Unlock()
 			return
 		}
-		if reply.VoteGranted && reply.Term == rf.getCurrentTerm() {
+		if reply.VoteGranted && reply.Term == rf.getCurrentTermU() {
 			votes++
 		}
-		if votes >= rf.getMajority() {
+		if votes >= rf.getMajorityU() {
 			// fmt.Println(rf.getMe(), "became leader term:", rf.getCurrentTerm())
-			rf.becomeLeader()
-			rf.Start(nil)
+			rf.becomeLeaderU()
+			rf.resetTimerU()
+
+			go rf.Start(nil)
 			go rf.sendHeartbeatToPeers()
-			rf.resetTimer()
+			
+			rf.mu.Unlock()
 			return
 		}
+		rf.mu.Unlock()
 	}
-	rf.clearVotedFor()
-	rf.persist()
+
+	rf.mu.Lock()
+	rf.clearVotedForU()
+	rf.persistU()
+	rf.mu.Unlock()
 }
 
 func (rf *Raft) ticker() {
