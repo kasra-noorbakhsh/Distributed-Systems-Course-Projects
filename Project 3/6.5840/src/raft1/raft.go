@@ -832,50 +832,113 @@ func (rf *Raft) applyCommitedEntry() {
 	}
 }
 
-func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
-	reply.Term = rf.getCurrentTerm()
-	reply.Id = rf.getMe()
-	reply.Success = false
 
-	if args.Term < rf.getCurrentTerm() {
+func (rf *Raft) getCurrentTermU() int {
+	return rf.currentTerm
+}
+
+func (rf *Raft) getMeU() int {
+	return rf.me
+}
+
+func (rf *Raft) persistU() {
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+
+	// Encode persistent state
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.log)
+
+	raftstate := w.Bytes()
+	rf.persister.Save(raftstate, nil) // no snapshot yet
+}
+
+func (rf *Raft) setCurrentTermU(term int) {
+	rf.currentTerm = term
+}
+
+func (rf *Raft) becomeFollowerU() {
+	rf.state = FOLLOWER
+	rf.votedFor = -1
+}
+
+func (rf *Raft) getLogEntryU(index int) LogEntry {
+	if index < 0 || index >= len(rf.log) {
+		// fmt.Println("---", index, ">", len(rf.log))
+		return LogEntry{}
+	}
+	return rf.log[index]
+}
+
+func (rf *Raft) getLogSizeU() int {
+	return len(rf.log)
+}
+
+func (rf *Raft) resetTimerU() {
+	ms := rf.getTimeoutDurationU()
+	rf.timeout.Reset(time.Duration(ms) * time.Millisecond)
+}
+
+func (rf *Raft) getTimeoutDurationU() int64 {
+	var ms int64
+	if rf.isLeaderU() {
+		ms = 100
+	} else {
+		ms = 150 + (rand.Int63() % 150)
+	}
+	return ms
+}
+
+func (rf *Raft) isLeaderU() bool {
+	return rf.state == LEADER
+}
+
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	reply.Term = rf.getCurrentTermU()
+	reply.Id = rf.getMeU()
+	reply.Success = false
+	
+	if args.Term < rf.getCurrentTermU() {
 		return
 	}
-	if args.Term > rf.getCurrentTerm() {
-		rf.setCurrentTerm(args.Term)
-		rf.becomeFollower()
-		rf.persist()
+	if args.Term > rf.getCurrentTermU() {
+		rf.setCurrentTermU(args.Term)
+		rf.becomeFollowerU()
+		rf.persistU()
 	}
-	rf.resetTimer()
-
+	rf.resetTimerU()
+	
 	if args.IsHeartbeat {
-		if args.LastCommitTerm == rf.getLogEntry(args.LeaderCommit).Term {
+		if args.LastCommitTerm == rf.getLogEntryU(args.LeaderCommit).Term {
 			rf.updateFollowerCommitIndex(args.LeaderCommit)
 		}
 		return
 	}
-
-	if args.PrevLogIndex >= rf.getLogSize() {
+	
+	if args.PrevLogIndex >= rf.getLogSizeU() {
 		return
 	}
-	if args.PrevLogIndex >= 0 && rf.getLogEntry(args.PrevLogIndex).Term != args.PrevLogTerm {
+	if args.PrevLogIndex >= 0 && rf.getLogEntryU(args.PrevLogIndex).Term != args.PrevLogTerm {
 		return
 	}
-
-	rf.mu.Lock()
+	
 	rf.truncateLog(args.PrevLogIndex)
 	rf.appendLogEntries(args.Entries...)
-	rf.mu.Unlock()
 	rf.updateFollowerCommitIndex(args.LeaderCommit)
-
-	rf.persist()
-
+	
+	rf.persistU()
+	
 	reply.LastIndex = args.PrevLogIndex + len(args.Entries)
 	reply.Success = true
 }
 
 func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// rf.mu.Lock()
+	// defer rf.mu.Unlock()
 
 	if rf.state == LEADER {
 		return
