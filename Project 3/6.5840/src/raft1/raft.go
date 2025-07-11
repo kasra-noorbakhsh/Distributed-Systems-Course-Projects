@@ -369,6 +369,10 @@ func (rf *Raft) persist() {
 	rf.persister.Save(raftstate, nil) // no snapshot yet
 }
 
+func (rf *Raft) setLogU(log []LogEntry) {
+	rf.log = log
+}
+
 // restore previously persisted state.
 func (rf *Raft) readPersist(data []byte) {
 	if data == nil || len(data) < 1 {
@@ -387,9 +391,12 @@ func (rf *Raft) readPersist(data []byte) {
 		d.Decode(&log) != nil {
 		panic("Failed to decode persisted Raft state")
 	} else {
-		rf.setCurrentTerm(currentTerm)
-		rf.setVotedFor(votedFor)
-		rf.setLog(log)
+		rf.mu.Lock()
+		defer rf.mu.Unlock()
+
+		rf.setCurrentTermU(currentTerm)
+		rf.setVotedForU(votedFor)
+		rf.setLogU(log)
 	}
 }
 
@@ -642,7 +649,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
 	for i := range rf.getPeers() {
-		if i == rf.getMe() {
+		if i == rf.getMeU() {
 			continue
 		}
 		go func(server int) {
@@ -702,7 +709,7 @@ func (rf *Raft) lastCommitTerm() int {
 
 func (rf *Raft) sendHeartbeatToPeers() {
 	for i := range rf.getPeers() {
-		if i == rf.getMe() {
+		if i == rf.getMeU() {
 			continue
 		}
 		go func(server int) {
@@ -752,7 +759,7 @@ func (rf *Raft) sendRequestVoteToPeers(replies chan RequestVoteReply) {
 	rf.mu.Unlock()
 
 	for i := range rf.getPeers() {
-		if i == rf.getMe() {
+		if i == rf.getMeU() {
 			continue
 		}
 		go func(peer int) {
