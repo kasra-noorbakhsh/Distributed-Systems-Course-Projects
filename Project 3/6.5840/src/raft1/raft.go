@@ -827,26 +827,37 @@ func (rf *Raft) handleRequestVoteReplies(replies chan RequestVoteReply) {
 	rf.mu.Unlock()
 }
 
+func (rf *Raft) incrementTermU() {
+	rf.currentTerm++
+}
+
+func (rf *Raft) voteForSelfU() {
+	rf.votedFor = rf.me
+}	
+
 func (rf *Raft) ticker() {
 	for !rf.killed() {
 		// Your code here (3A)
 		rf.waitForTimeout()
-		rf.resetTimer()
+		rf.mu.Lock()
 
-		if rf.isLeader() {
-			// fmt.Println(rf.getMe(), "is leader, sending heartbeat")
+		rf.resetTimerU()
+		if rf.isLeaderU() {
 			go rf.sendHeartbeatToPeers()
+			rf.mu.Unlock()
 			continue
 		}
 		// fmt.Println(rf.getMe(), "starting election term:", rf.getCurrentTerm())
-		rf.incrementTerm()
-		rf.voteForSelf()
-		rf.persist()
-
+		rf.incrementTermU()
+		rf.voteForSelfU()
+		rf.persistU()
+		
 		replies := make(chan RequestVoteReply, len(rf.peers)-1)
-
+		
 		go rf.sendRequestVoteToPeers(replies)
 		go rf.handleRequestVoteReplies(replies)
+		
+		rf.mu.Unlock()
 	}
 }
 
