@@ -110,7 +110,7 @@ func (rf *Raft) becomeLeader() {
 		// 	rf.nextIndex[i] = len(rf.log) - 1
 		// }
 		rf.nextIndex[i] = 0
-		rf.matchIndex[i] = 0
+		rf.matchIndex[i] = -1
 	}
 }
 
@@ -579,8 +579,6 @@ func (rf *Raft) updateLeaderCommitIndex() {
 		majority := len(rf.peers)/2 + 1
 		if count >= majority {
 			rf.commitIndex = i
-
-			// fmt.Println("Leader", rf.getMe(), "term:", currentTerm, "updated commitIndex to", rf.getCommitIndex(), "log:", rf.getLog()[max(rf.getLogSize()-5, 0):])
 			rf.mu.Unlock()
 			rf.applyCommitedEntry()
 			rf.mu.Lock()
@@ -684,7 +682,7 @@ func (rf *Raft) sendHeartbeat() {
 				IsHeartbeat:    true,
 			}
 			rf.mu.Unlock()
-			
+
 			reply := AppendEntriesReply{}
 			// fmt.Println(rf.getMe(), "sending heartbeat to", server, "term:", rf.getCurrentTerm())
 			rf.sendAppendEntries(server, &args, &reply)
@@ -797,6 +795,9 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastApplied = -1
 	rf.currentIndex = 0
 	rf.matchIndex = make([]int, len(peers))
+	for i := range rf.matchIndex {
+		rf.matchIndex[i] = -1
+	}
 	rf.nextIndex = make([]int, len(peers))
 	rf.log = make([]LogEntry, 0)
 	rf.startTimer()
