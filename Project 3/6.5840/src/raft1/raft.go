@@ -561,18 +561,24 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 }
 
 func (rf *Raft) updateLeaderCommitIndex() {
-	currentTerm := rf.getCurrentTerm()
-	for i := rf.getCommitIndex() + 1; i < rf.getLogSize(); i++ {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	currentTerm := rf.currentTerm
+	for i := rf.commitIndex + 1; i < len(rf.log); i++ {
 		count := 0
-		for _, matchIndex := range rf.getMatchIndex() {
-			if matchIndex >= i && rf.getLogEntry(i).Term == currentTerm {
+		for _, matchIndex := range rf.matchIndex {
+			if matchIndex >= i && rf.log[i].Term == currentTerm {
 				count++
 			}
 		}
-		if count >= rf.getMajority() {
-			rf.setCommitIndex(i)
+		majority := len(rf.peers)/2 + 1
+		if count >= majority {
+			rf.commitIndex = i
+
 			// fmt.Println("Leader", rf.getMe(), "term:", currentTerm, "updated commitIndex to", rf.getCommitIndex(), "log:", rf.getLog()[max(rf.getLogSize()-5, 0):])
+			rf.mu.Unlock()
 			rf.applyCommitedEntry()
+			rf.mu.Lock()
 		}
 	}
 }
