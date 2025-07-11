@@ -121,16 +121,6 @@ func (rf *Raft) becomeFollower() {
 	rf.votedFor = -1
 }
 
-// func (rf *Raft) setIsLeader(isLeader bool) {
-// 	rf.mu.Lock()
-// 	defer rf.mu.Unlock()
-// 	if isLeader {
-// 		rf.state = LEADER
-// 	} else {
-// 		rf.state = FOLLOWER
-// 	}
-// }
-
 func (rf *Raft) getLastApplied() int {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -222,18 +212,10 @@ func (rf *Raft) setNextIndex(server int, nextIndex int) {
 }
 
 func (rf *Raft) decrementNextIndex(server int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// rf.mu.Lock()
+	// defer rf.mu.Unlock()
 	rf.nextIndex[server]--
 }
-
-// func (rf *Raft) getMatchIndex() []int {
-// 	rf.mu.Lock()
-// 	defer rf.mu.Unlock()
-// 	clone := make([]int, len(rf.matchIndex))
-// 	copy(clone, rf.matchIndex)
-// 	return clone
-// }
 
 func (rf *Raft) setMatchIndex(server int, matchIndex int) {
 	rf.mu.Lock()
@@ -511,7 +493,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	if prevLogIndex >= 0 {
 		prevLogTerm = rf.log[prevLogIndex].Term
 	}
-	
+
 	args := AppendEntriesArgs{
 		Term:         term,
 		LeaderId:     rf.me,
@@ -532,8 +514,6 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 }
 
 func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
-	// rf.mu.Lock()
-	// defer rf.mu.Unlock()
 	entries := make([]LogEntry, len(rf.log[startIndex:]))
 	copy(entries, rf.log[startIndex:])
 	return entries
@@ -559,9 +539,11 @@ func (rf *Raft) handleAppendEntriesReply(server int, replyCh chan AppendEntriesR
 		// }
 		// fmt.Println("server", rf.getMe(), "term", rf.getCurrentTerm(), "set MatchIndex[", server, "] to", reply.LastIndex)
 	} else {
-		if rf.getNextIndex(server) > 0 {
+		rf.mu.Lock()
+		if rf.nextIndex[server] > 0 {
 			rf.decrementNextIndex(server)
 		}
+		rf.mu.Unlock()
 	}
 }
 
@@ -812,7 +794,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
-	// go rf.applyCommitedEntry()
 
 	// go func() {
 	// 	http.ListenAndServe("localhost:6060", nil)
