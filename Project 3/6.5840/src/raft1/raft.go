@@ -505,20 +505,23 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 }
 
 func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan AppendEntriesReply, okCh chan bool) {
-	prevLogIndex := rf.getNextIndex(server) - 1
+	rf.mu.Lock()
+	prevLogIndex := rf.nextIndex[server] - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
-		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
+		prevLogTerm = rf.log[prevLogIndex].Term
 	}
-
+	
 	args := AppendEntriesArgs{
 		Term:         term,
-		LeaderId:     rf.getMe(),
+		LeaderId:     rf.me,
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
 		Entries:      rf.getLogSuffix(prevLogIndex + 1),
-		LeaderCommit: rf.getCommitIndex(),
+		LeaderCommit: rf.commitIndex,
 	}
+	rf.mu.Unlock()
+
 	reply := AppendEntriesReply{}
 	ok := rf.sendAppendEntries(server, &args, &reply)
 	okCh <- ok
@@ -529,8 +532,8 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 }
 
 func (rf *Raft) getLogSuffix(startIndex int) []LogEntry {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	// rf.mu.Lock()
+	// defer rf.mu.Unlock()
 	entries := make([]LogEntry, len(rf.log[startIndex:]))
 	copy(entries, rf.log[startIndex:])
 	return entries
