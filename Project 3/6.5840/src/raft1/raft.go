@@ -64,34 +64,6 @@ type Raft struct {
 	applyCh      chan raftapi.ApplyMsg
 }
 
-func printList(entries []LogEntry) string {
-	var result string
-	for i, entry := range entries {
-		cmdStr := fmt.Sprintf("%v", entry.Command)
-		if len(cmdStr) > 3 {
-			cmdStr = cmdStr[:3]
-		}
-		s := fmt.Sprintf("{T:%d C:%s}", entry.Term, cmdStr)
-		if i > 0 {
-			result += " "
-		}
-		result += s
-	}
-	return result
-}
-
-func (rf *Raft) setState(state_ State) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.state = state_
-}
-
-func (rf *Raft) getState() State {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.state
-}
-
 func (rf *Raft) isLeader() bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -149,30 +121,6 @@ func (rf *Raft) getPeer(server int) *labrpc.ClientEnd {
 	return rf.peers[server]
 }
 
-func (rf *Raft) getMe() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.me
-}
-
-func (rf *Raft) getLog() []LogEntry {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.log
-}
-
-func (rf *Raft) setLog(log []LogEntry) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.log = log
-}
-
-func (rf *Raft) getLogSize() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return len(rf.log)
-}
-
 func (rf *Raft) truncateLog(index int) {
 	if rf.state == LEADER {
 		fmt.Println("truncate leader's log")
@@ -223,61 +171,6 @@ func (rf *Raft) decrementNextIndex(server int) {
 	// rf.mu.Lock()
 	// defer rf.mu.Unlock()
 	rf.nextIndex[server]--
-}
-
-func (rf *Raft) setMatchIndex(server int, matchIndex int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.matchIndex[server] = matchIndex
-}
-
-func (rf *Raft) incrementTerm() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.currentTerm++
-}
-
-func (rf *Raft) getVotedFor() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.votedFor
-}
-
-func (rf *Raft) setVotedFor(votedFor int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.votedFor = votedFor
-}
-
-func (rf *Raft) voteForSelf() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.votedFor = rf.me
-}
-
-func (rf *Raft) clearVotedFor() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.votedFor = -1
-}
-
-func (rf *Raft) getCommitIndex() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.commitIndex
-}
-
-func (rf *Raft) setCommitIndex(commitIndex int) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.commitIndex = commitIndex
-}
-
-func (rf *Raft) getMajority() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	majority := len(rf.peers)/2 + 1
-	return majority
 }
 
 func (rf *Raft) getIndex(command interface{}) int {
@@ -359,10 +252,7 @@ func (rf *Raft) isMoreUpToDate(args *RequestVoteArgs) bool {
 // second argument to persister.Save().
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
-func (rf *Raft) persist() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
+func (rf *Raft) persistU() {
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 
@@ -960,19 +850,6 @@ func (rf *Raft) getCurrentTermU() int {
 
 func (rf *Raft) getMeU() int {
 	return rf.me
-}
-
-func (rf *Raft) persistU() {
-	w := new(bytes.Buffer)
-	e := labgob.NewEncoder(w)
-
-	// Encode persistent state
-	e.Encode(rf.currentTerm)
-	e.Encode(rf.votedFor)
-	e.Encode(rf.log)
-
-	raftstate := w.Bytes()
-	rf.persister.Save(raftstate, nil) // no snapshot yet
 }
 
 func (rf *Raft) setCurrentTermU(term int) {
