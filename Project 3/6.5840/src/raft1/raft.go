@@ -882,8 +882,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 }
 
 func (rf *Raft) updateFollowerCommitIndex(leaderCommit int) {
-	// rf.mu.Lock()
-	// defer rf.mu.Unlock()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 
 	if rf.state == LEADER {
 		return
