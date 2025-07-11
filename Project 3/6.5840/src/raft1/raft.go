@@ -659,19 +659,29 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
+func (rf *Raft) lastCommitTerm() int {
+	if rf.commitIndex < 0 || rf.commitIndex >= len(rf.log) {
+		return -1
+	}
+	return rf.log[rf.commitIndex].Term
+}
+
 func (rf *Raft) sendHeartbeat() {
 	for i := range rf.peers {
 		if i == rf.me {
 			continue
 		}
 		go func(server int) {
+			rf.mu.Lock()
 			args := AppendEntriesArgs{
-				Term:           rf.getCurrentTerm(),
-				LeaderId:       rf.getMe(),
-				LeaderCommit:   rf.getCommitIndex(),
-				LastCommitTerm: rf.getLogEntry(rf.getCommitIndex()).Term,
+				Term:           rf.currentTerm,
+				LeaderId:       rf.me,
+				LeaderCommit:   rf.commitIndex,
+				LastCommitTerm: rf.lastCommitTerm(),
 				IsHeartbeat:    true,
 			}
+			rf.mu.Unlock()
+			
 			reply := AppendEntriesReply{}
 			// fmt.Println(rf.getMe(), "sending heartbeat to", server, "term:", rf.getCurrentTerm())
 			rf.sendAppendEntries(server, &args, &reply)
