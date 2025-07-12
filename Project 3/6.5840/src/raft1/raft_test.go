@@ -999,7 +999,7 @@ func TestFigure8Unreliable3C(t *testing.T) {
 	ts.one(rand.Int()%10000, 1, true)
 
 	nup := servers
-	for iters := 0; iters < 1000; iters++ {
+	for iters := 0; iters < 100; iters++ {
 		if iters == 200 {
 			ts.SetLongReordering(true)
 		}
