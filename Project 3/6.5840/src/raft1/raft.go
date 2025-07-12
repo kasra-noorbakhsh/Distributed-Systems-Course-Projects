@@ -359,7 +359,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		if !rf.isMoreUpToDate(args) {
 			rf.setVotedFor(args.CandidateId)
 			reply.VoteGranted = true
-			// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		}
 		rf.persist()
 		return
@@ -368,7 +367,6 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.setVotedFor(args.CandidateId)
 		rf.persist()
 		reply.VoteGranted = true
-		// fmt.Println(rf.getMe(), "Vote granted to", args.CandidateId, "term:", rf.getCurrentTerm())
 		return
 	}
 	reply.VoteGranted = false
@@ -411,7 +409,7 @@ func (rf *Raft) sendAppendEntriesToFollower(server int, term int, replyCh chan A
 	prevLogIndex := rf.nextIndex[server] - 1
 	prevLogTerm := -1
 	if prevLogIndex >= 0 {
-		prevLogTerm = rf.log[prevLogIndex].Term
+		prevLogTerm = rf.getLogEntry(prevLogIndex).Term
 	}
 
 	args := AppendEntriesArgs{
@@ -511,7 +509,6 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.setMatchIndex(rf.getMe(), rf.getLogSize()-1)
 	rf.mu.Unlock()
 
-	// fmt.Println("Leader", rf.getMe(), "term:", rf.getCurrentTerm(), "appending command:", command, "log:", rf.getLog())
 	for i := range rf.getPeers() {
 		if i == rf.getMe() {
 			continue
@@ -739,7 +736,7 @@ func (rf *Raft) applyCommitedEntry() {
 	for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 		entry := LogEntry{}
 		if i < len(rf.log) {
-			entry = rf.log[i]
+			entry = rf.getLogEntry(i)
 
 		}
 		applyMessage := raftapi.ApplyMsg{
@@ -751,7 +748,6 @@ func (rf *Raft) applyCommitedEntry() {
 			return
 		}
 		if applyMessage.Command == nil {
-			fmt.Println("Entry:", entry, "lastApplied:", rf.lastApplied, "commitIndex:", rf.commitIndex, "log size:", len(rf.log))
 			continue
 		}
 		rf.applyCh <- applyMessage
